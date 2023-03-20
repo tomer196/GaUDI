@@ -69,7 +69,7 @@ def eval_stability(x, one_hot, dataset="cata"):
     atom_type = one_hot.argmax(2).cpu().detach()
     molecule_list = [(x[i].cpu().detach(), atom_type[i]) for i in range(x.shape[0])]
     stability_dict, molecule_stable_list = analyze_stability_for_molecules(
-        molecule_list, args.tol, dataset=dataset
+        molecule_list, dataset=dataset
     )
     x = x[stability_dict["molecule_stable_bool"]]
     atom_type = atom_type[stability_dict["molecule_stable_bool"]]
@@ -165,7 +165,6 @@ def design(args, model, cond_predictor, nodes_dist, prop_dist, scale, n_nodes):
         x[best_idx].detach().cpu(),
         atom_type[best_idx].detach().cpu(),
         filename=f"{dir_name}/all.png",
-        tol=args.tol,
         title=f"{best_str}\n {best_value}",
         dataset=args.dataset,
     )
@@ -190,7 +189,6 @@ def design(args, model, cond_predictor, nodes_dist, prop_dist, scale, n_nodes):
             x_stable[idx].detach().cpu(),
             atom_type_stable[idx].detach().cpu(),
             filename=f"{dir_name}/{i}.pdf",
-            tol=args.tol,
             title=f"{best_str}\n {value}",
             dataset=args.dataset,
         )
@@ -198,7 +196,6 @@ def design(args, model, cond_predictor, nodes_dist, prop_dist, scale, n_nodes):
             x_stable[idx].detach().cpu(),
             atom_type_stable[idx].detach().cpu(),
             filename=f"{dir_name}/mol_{i}.pdf",
-            tol=args.tol,
             title=f"{best_str}\n {value}",
             dataset=args.dataset,
         )
