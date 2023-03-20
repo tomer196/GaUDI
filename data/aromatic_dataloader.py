@@ -336,35 +336,3 @@ def create_data_loaders(args):
         pin_memory=True,
     )
     return train_loader, val_loader, test_loader
-
-
-if __name__ == "__main__":
-    args = Args_EDM().parse_args()
-    # args.dataset = "cata"
-    # args.target_features = "GAP_eV"
-    train_loader, val_loader, test_loader = create_data_loaders(args)
-    # import matplotlib.pyplot as plt
-    # for i in range(5):
-    #     mol, edges = dataset.get_mol(i)
-    #     fig, ax = plt.subplots(1, 1, figsize=(10, 12))
-    #     ax.axis('off')
-    #
-    #     # plot molecule
-    #     moldraw(ax, mol, edges)
-    #     ax.set_title()
-    #     fig.show()
-    # s=time()
-    # print(train_loader.dataset[0])
-    # print(time()-s)
-    #
-    times = []
-    s = time()
-    with tqdm(test_loader) as tepoch:
-        for i, data in enumerate(tepoch):
-            times.append(time() - s)
-            # print(data[0].shape)
-            s = time()
-            # if i==2000:
-            #     print(np.mean(times), np.std(times))
-            #     sys.exit()
-    print(np.mean(times), np.std(times))

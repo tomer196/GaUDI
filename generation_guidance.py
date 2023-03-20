@@ -10,7 +10,7 @@ import numpy as np
 from torch import Tensor, randn
 import matplotlib.pyplot as plt
 
-from analyze.analyze import analyze_stability_for_molecules
+from analyze.analyze import analyze_validity_for_molecules
 from edm.equivariant_diffusion.utils import (
     assert_correctly_masked,
     assert_mean_zero_with_mask,
@@ -68,7 +68,7 @@ def get_target_function_values(x, h, target_function, node_mask, edge_mask, edm_
 def eval_stability(x, one_hot, dataset="cata"):
     atom_type = one_hot.argmax(2).cpu().detach()
     molecule_list = [(x[i].cpu().detach(), atom_type[i]) for i in range(x.shape[0])]
-    stability_dict, molecule_stable_list = analyze_stability_for_molecules(
+    stability_dict, molecule_stable_list = analyze_validity_for_molecules(
         molecule_list, dataset=dataset
     )
     x = x[stability_dict["molecule_stable_bool"]]
@@ -90,7 +90,9 @@ def switch_grad_off(models):
             p.requires_grad = False
 
 
-def design(args, model, cond_predictor, nodes_dist, prop_dist, scale, n_nodes):
+def design(
+    args, model, cond_predictor, target_function, nodes_dist, prop_dist, scale, n_nodes
+):
     switch_grad_off([model, cond_predictor])
     model.eval()
     cond_predictor.eval()
@@ -99,22 +101,6 @@ def design(args, model, cond_predictor, nodes_dist, prop_dist, scale, n_nodes):
     print("Design molecule...")
     nodesxsample = Tensor([n_nodes] * args.batch_size).long()
     # nodesxsample = nodes_dist.sample(args.batch_size)
-
-    # define target function
-    def target_function_max_gap(_input, _node_mask, _edge_mask, _t):
-        pred = cond_predictor(_input, _node_mask, _edge_mask, _t)
-        gap = pred[:, 1]
-        return -gap
-
-    def target_function_opv(_input, _node_mask, _edge_mask, _t):
-        pred = cond_predictor(_input, _node_mask, _edge_mask, _t)
-        pred = prop_dist.unnormalize(pred)
-        gap = pred[:, 0]
-        ea = pred[:, 2]
-        ip = pred[:, 3]
-        return ip + ea + 3 * gap
-
-    target_function = target_function_max_gap
 
     # sample molecules - guidance generation
     start_time = time()
@@ -153,7 +139,8 @@ def design(args, model, cond_predictor, nodes_dist, prop_dist, scale, n_nodes):
 
     timestamp = datetime.now().strftime("%m%d_%H:%M:%S")
     dir_name = f"best/{timestamp}_{scale}"
-    os.mkdir(dir_name)
+    os.makedirs("best", exist_ok=True)
+    os.makedirs(dir_name, exist_ok=True)
 
     # find best molecule - can be unvalid
     best_idx = target_function_values.min(0).indices.item()
@@ -215,7 +202,30 @@ def main(args, cond_predictor_args):
     model, nodes_dist, prop_dist = get_model(args, train_loader)
     cond_predictor = get_cond_predictor_model(cond_predictor_args, train_loader.dataset)
 
-    design(args, model, cond_predictor, nodes_dist, prop_dist, scale, n_nodes)
+    # define target function
+    def target_function_max_gap(_input, _node_mask, _edge_mask, _t):
+        pred = cond_predictor(_input, _node_mask, _edge_mask, _t)
+        gap = pred[:, 1]
+        return -gap
+
+    def target_function_opv(_input, _node_mask, _edge_mask, _t):
+        pred = cond_predictor(_input, _node_mask, _edge_mask, _t)
+        pred = prop_dist.unnormalize(pred)
+        gap = pred[:, 0]
+        ea = pred[:, 2]
+        ip = pred[:, 3]
+        return ip + ea + 3 * gap
+
+    design(
+        args,
+        model,
+        cond_predictor,
+        target_function_max_gap,
+        nodes_dist,
+        prop_dist,
+        scale,
+        n_nodes,
+    )
 
 
 if __name__ == "__main__":

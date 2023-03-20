@@ -4,8 +4,8 @@ import random
 import warnings
 
 from analyze.analyze import (
-    analyze_stability_for_molecules,
-    analyze_rdkit_valid_for_molecules,
+    analyze_validity_for_molecules,
+    analyze_rdkit_validity_for_molecules,
 )
 from data.aromatic_dataloader import create_data_loaders
 from models_edm import get_model
@@ -45,7 +45,7 @@ def analyze_and_save(args, model, nodes_dist, n_samples=1000, n_chains=1):
 
     print(f"{len(molecule_list)} molecules generated, starting analysis")
 
-    stability_dict, molecule_stable_list = analyze_stability_for_molecules(
+    stability_dict, molecule_stable_list = analyze_validity_for_molecules(
         molecule_list, dataset=args.dataset
     )
     print(f"Stability for {args.exp_dir}")
@@ -55,7 +55,7 @@ def analyze_and_save(args, model, nodes_dist, n_samples=1000, n_chains=1):
         except:
             pass
 
-    stability_dict, molecule_stable_list = analyze_rdkit_valid_for_molecules(
+    stability_dict, molecule_stable_list = analyze_rdkit_validity_for_molecules(
         molecule_list, dataset=args.dataset
     )
     print(f"RDkit validity for {args.exp_dir}")
@@ -103,7 +103,7 @@ def analyze_and_save(args, model, nodes_dist, n_samples=1000, n_chains=1):
 
 
 def main(args):
-    n_samples = 256
+    n_samples = 100
     n_chains = 1
 
     # Prepare data

@@ -12,12 +12,10 @@ from data.gor2goa import rdkit_valid, gor2goa, smiles2inchi
 from utils.args_edm import Args_EDM
 from utils.utils import (
     positions2adj,
-    coord2distances,
     ring_distances,
     angels3_dict,
     angels4_dict,
 )
-import pandas as pd
 
 
 def check_angels3(angels3: Tensor, tol=0.1, dataset="cata") -> bool:
@@ -102,9 +100,7 @@ def check_stability(positions, ring_type, tol=0.1, dataset="cata") -> dict:
     return results
 
 
-def main_check_stability(args, tol=0.1):
-    args.sample_rate = 0.1
-    train_loader, _, _ = create_data_loaders(args)
+def main_check_stability(args, tol=0.1, rdkit=False):
     train_dataloader, val_dataloader, test_dataloader = create_data_loaders(args)
 
     def test_validity_for(dataloader):
@@ -117,21 +113,30 @@ def main_check_stability(args, tol=0.1):
                 positions, one_hot = positions[mask], one_hot[mask]
                 atom_type = torch.argmax(one_hot, dim=1).numpy()
                 molecule_list.append((positions, atom_type))
-        validity_dict, molecule_stable_list = analyze_stability_for_molecules(
-            molecule_list, tol=tol, dataset=args.dataset, orientation=args.orientation
+        validity_dict, molecule_stable_list = analyze_validity_for_molecules(
+            molecule_list, tol=tol, dataset=args.dataset
         )
         del validity_dict["molecule_stable_bool"]
+        print("Validity:")
         print(validity_dict)
 
-    print("For train")
+        if rdkit:
+            validity_dict, molecule_stable_list = analyze_rdkit_validity_for_molecules(
+                molecule_list, tol=tol, dataset=args.dataset
+            )
+            del validity_dict["molecule_stable_bool"]
+            print("Validity rdkit:")
+            print(validity_dict)
+
+    print("\nFor train")
     test_validity_for(train_dataloader)
-    print("For val")
+    print("\nFor val")
     test_validity_for(val_dataloader)
-    print("For test")
+    print("\nFor test")
     test_validity_for(test_dataloader)
 
 
-def analyze_stability_for_molecules(molecule_list, tol=0.1, dataset="cata"):
+def analyze_validity_for_molecules(molecule_list, tol=0.1, dataset="cata"):
     n_samples = len(molecule_list)
     molecule_stable_list = []
     molecule_stable_bool = []
@@ -172,7 +177,7 @@ def analyze_stability_for_molecules(molecule_list, tol=0.1, dataset="cata"):
     return validity_dict, molecule_stable_list
 
 
-def analyze_rdkit_valid_for_molecules(
+def analyze_rdkit_validity_for_molecules(
     molecule_list,
     tol=0.1,
     dataset="cata",
@@ -335,4 +340,5 @@ def get_angels(xs: Tensor, ring_types, adjs, node_masks=None, dataset="cata"):
 if __name__ == "__main__":
     args = Args_EDM().parse_args()
     args.dataset = "cata"
+    args.target_feature = "GAP_eV"
     main_check_stability(args)
