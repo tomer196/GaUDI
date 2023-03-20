@@ -5,12 +5,12 @@ from edm.equivariant_diffusion.utils import remove_mean, remove_mean_with_mask
 import numpy as np
 
 
-class EGNN_dynamics_QM9(nn.Module):
+class EGNN_dynamics(nn.Module):
     def __init__(
         self,
         in_node_nf,
-        context_node_nf,
-        n_dims,
+        context_node_nf=0,
+        n_dims=3,
         hidden_nf=64,
         device="cpu",
         act_fn=torch.nn.SiLU(),
@@ -28,6 +28,8 @@ class EGNN_dynamics_QM9(nn.Module):
     ):
         super().__init__()
         self.mode = mode
+        if condition_time:
+            in_node_nf += 1
         if mode == "egnn_dynamics":
             self.egnn = EGNN(
                 in_node_nf=in_node_nf + context_node_nf,

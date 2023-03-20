@@ -10,8 +10,8 @@
 ```
 conda create -n <env_name> python=3.8
 conda activate <env_name>
-conda install pytorch=1.10.1 -c pytorch
-conda install numpy matplotlib networkx scipy tensorboard pandas rdkit
+conda install pytorch=1.10 rdkit
+pip install matplotlib networkx tensorboard pandas scipy
 ```
 
 ## Usage

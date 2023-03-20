@@ -1,3 +1,5 @@
+from argparse import Namespace
+
 from torch import Tensor
 from tqdm import tqdm
 
@@ -5,8 +7,8 @@ import torch
 import networkx as nx
 import numpy as np
 
-from data.aromatic_dataloader import create_data_loaders, RINGS_LIST
-from edm.qm9.analyze import Histogram_discrete, Histogram_cont, kl_divergence_sym
+from data.aromatic_dataloader import create_data_loaders, RINGS_LIST, get_splits
+from data.gor2goa import rdkit_valid, gor2goa, smiles2inchi
 from utils.args_edm import Args_EDM
 from utils.utils import (
     positions2adj,
@@ -47,9 +49,7 @@ def check_angels4(angels4: Tensor, tol=0.1, dataset="cata") -> bool:
     return cond.all()
 
 
-def check_stability(
-    positions, ring_type, tol=0.1, dataset="cata", orientation=False
-) -> dict:
+def check_stability(positions, ring_type, tol=0.1, dataset="cata") -> dict:
     results = {
         "orientation_nodes": True,
         "dist_stable": False,
@@ -63,7 +63,8 @@ def check_stability(
     assert positions.shape[1] == 3
     if len(ring_type.shape) == 2:
         ring_type = ring_type.argmax(1)
-    if orientation:
+
+    if dataset != "cata":  # orientation nodes
         n_rings = torch.div(positions.shape[0], 2, rounding_mode="trunc")
         positions = positions[:n_rings]
         # check orientation nodes
@@ -87,7 +88,7 @@ def check_stability(
     else:
         results["dist_stable"] = True
 
-    g = nx.from_numpy_matrix(adj.numpy())
+    g = nx.from_numpy_array(adj.numpy())
     if not nx.is_connected(g):
         return results
     else:
@@ -98,8 +99,6 @@ def check_stability(
     )
     results["angels3"] = check_angels3(angels3, tol, dataset=dataset)
     results["angels4"] = check_angels4(angels4, tol, dataset=dataset)
-    # plot_graph_of_rings(positions, ring_type, filename=f'tests/test.png',
-    #                     tol=0.1)
     return results
 
 
@@ -132,9 +131,7 @@ def main_check_stability(args, tol=0.1):
     test_validity_for(test_dataloader)
 
 
-def analyze_stability_for_molecules(
-    molecule_list, tol=0.1, dataset="cata", orientation=False
-):
+def analyze_stability_for_molecules(molecule_list, tol=0.1, dataset="cata"):
     n_samples = len(molecule_list)
     molecule_stable_list = []
     molecule_stable_bool = []
@@ -145,9 +142,7 @@ def analyze_stability_for_molecules(
 
     # with tqdm(molecule_list, unit="mol") as tq:
     for i, (x, atom_type) in enumerate(molecule_list):
-        validity_results = check_stability(
-            x, atom_type, tol=tol, dataset=dataset, orientation=orientation
-        )
+        validity_results = check_stability(x, atom_type, tol=tol, dataset=dataset)
 
         molecule_stable = all(validity_results.values())
         n_molecule_stable += int(molecule_stable)
@@ -175,6 +170,57 @@ def analyze_stability_for_molecules(
     # print('Validity:', validity_dict)
 
     return validity_dict, molecule_stable_list
+
+
+def analyze_rdkit_valid_for_molecules(
+    molecule_list,
+    tol=0.1,
+    dataset="cata",
+):
+    df_train = get_splits(
+        Namespace(dataset=dataset, target_features=None, max_nodes=11)
+    )[0]
+    if "inchi" in df_train.columns:
+        train_inchi = df_train["inchi"].tolist()
+    else:
+        train_smiles = df_train["smiles"].tolist()
+        train_inchi = [smiles2inchi(s) for s in train_smiles]
+    n_samples = len(molecule_list)
+    molecule_valid_list = []
+    molecule_valid_bool = []
+    valid_inchi = []
+
+    with tqdm(molecule_list, unit="mol") as tq:
+        for i, (x, rings_type) in enumerate(tq):
+            try:
+                atoms, atoms_types, bonds = gor2goa(
+                    x,
+                    rings_type,
+                    tol=tol,
+                    dataset=dataset,
+                )
+                valid, val_ration = rdkit_valid([atoms_types], [bonds], dataset)
+                molecule_valid = len(valid) > 0
+            except:
+                molecule_valid = False
+
+            molecule_valid_bool.append(molecule_valid)
+            if molecule_valid:
+                molecule_valid_list.append((x, rings_type))
+                valid_inchi += valid
+
+    novel = set(valid_inchi) - set(train_inchi)
+    unique = set(valid_inchi)
+
+    validity_dict = {
+        "mol_valid": len(valid_inchi) / float(n_samples),
+        "mol_novel": len(novel) / max(len(valid_inchi), 1),
+        "mol_unique": len(unique) / max(len(valid_inchi), 1),
+        "molecule_valid_bool": molecule_valid_bool,
+        "valid_inchi": valid_inchi,
+    }
+
+    return validity_dict, molecule_valid_list
 
 
 def angel3(p):
@@ -221,7 +267,7 @@ def find_triplets_quads(adj: Tensor, x: Tensor, ring_types: Tensor, dataset="cat
     if len(ring_types.shape) == 2:
         ring_types = ring_types.argmax(1)
     rings = [rings_list[i] for i in ring_types]
-    g = nx.from_numpy_matrix(adj.numpy())
+    g = nx.from_numpy_array(adj.numpy())
     triplets = []
     for n1, n2 in nx.bfs_edges(g, 0):
         for n3 in g.neighbors(n1):
@@ -286,193 +332,7 @@ def get_angels(xs: Tensor, ring_types, adjs, node_masks=None, dataset="cata"):
     return angels3, angels4
 
 
-def main_analyze_rings(args):
-    # args.batch_size = 1
-    args.sample_rate = 0.1
-    # args.num_workers = 0
-    train_loader, _, _ = create_data_loaders(args)
-    train_loader.dataset.return_adj = True
-
-    hist_rings = Histogram_discrete("Histogram # rings")
-    hist_ring_type = Histogram_discrete("Histogram of ring types")
-    hist_dist = Histogram_cont(
-        name="Histogram relative distances", ignore_zeros=True, range=[0.0, 20]
-    )
-    neighbor_hist_dist = Histogram_cont(
-        name="Histogram relative distances of neighbors",
-        ignore_zeros=True,
-        range=[0.0, 20],
-    )
-    no_neighbor_hist_dist = Histogram_cont(
-        name="Histogram relative distances of non neighbors",
-        ignore_zeros=True,
-        range=[0.0, 20],
-    )
-    neighbor_hist_angle3 = Histogram_cont(
-        name="Histogram angle between neighbors", ignore_zeros=True, range=[0.0, 360]
-    )
-    neighbor_hist_angle4 = Histogram_cont(
-        name="Histogram angle between neighbors", ignore_zeros=True, range=[0.0, 360]
-    )
-    n_dist = []
-    angels3_all = []
-    angels4_all = []
-
-    with tqdm(train_loader, unit="batch") as tepoch:
-        for i, data in enumerate(tepoch):
-            # print(i, len(train_loader))
-            x, node_mask, edge_mask, node_features, adj, y = data
-
-            # Histogram num_nodes
-            num_nodes = torch.sum(node_mask, dim=1)
-            num_nodes = list(num_nodes.numpy())
-            hist_rings.add(num_nodes)
-
-            # Histogram edge distances
-            x = x * node_mask.unsqueeze(2)
-            dist = coord2distances(x)
-            hist_dist.add(list(dist.flatten().numpy()))
-
-            # Histogram edge distances
-            neighbor_dist = (dist * adj).flatten()
-            neighbor_hist_dist.add(list(neighbor_dist.numpy()))
-            n_dist.append(neighbor_dist[neighbor_dist != 0])
-            no_neighbor_dist = (dist * (1 - adj)).flatten()
-            no_neighbor_hist_dist.add(list(no_neighbor_dist.numpy()))
-
-            # Histogram of atom types
-            one_hot = node_features.float()
-            atom = torch.argmax(one_hot, 2)
-            atom = atom.flatten()
-            mask = node_mask.flatten()
-            masked_atoms = list(atom[mask.long()].numpy())
-            hist_ring_type.add(masked_atoms)
-
-            # Histogram of angels
-            angels3, angels4 = get_angels(x, one_hot, adj, node_mask)
-            angels3 = [t[1] for t in angels3]
-            neighbor_hist_angle3.add(angels3)
-            neighbor_hist_angle4.add(angels4)
-            angels3_all.append(angels3)
-            angels4_all.append(angels4)
-
-    hist_dist.plot(f"data/hist_dist_{args.dataset}.png")
-    hist_dist.plot_both(hist_dist.bins[::-1])
-    print(
-        "KL divergence A %.4f" % kl_divergence_sym(hist_dist.bins, hist_dist.bins[::-1])
-    )
-    print("KL divergence B %.4f" % kl_divergence_sym(hist_dist.bins, hist_dist.bins))
-    print({k.item(): v for k, v in zip(hist_dist.bins_border[:-1], hist_dist.bins)})
-    print(hist_dist.bins)
-    hist_rings.plot(f"data/hist_rings_{args.dataset}.png")
-    print(hist_rings.bins)
-    hist_ring_type.plot(
-        f"data/hist_ring_type_{args.dataset}.png", xticks=RINGS_LIST[args.dataset]
-    )
-    print(hist_ring_type.bins)
-
-    neighbor_hist_dist.plot(f"data/neighbor_hist_dist_{args.dataset}.png")
-    no_neighbor_hist_dist.plot(f"data/no_neighbor_hist_dist_{args.dataset}.png")
-    neighbor_hist_dist.plot_both(
-        no_neighbor_hist_dist.bins, f"data/neighbors_{args.dataset}.png"
-    )
-    print(f"Neighbor dist mean: {torch.cat(n_dist).mean()}")
-    print(f"Neighbor dist max: {torch.cat(n_dist).max()}")
-    print(f"Neighbor dist min: {torch.cat(n_dist).min()}")
-
-    neighbor_hist_angle3.plot(f"data/neighbor_hist_angle_{args.dataset}.png")
-    neighbor_hist_angle4.plot(f"data/neighbor_hist_angle_{args.dataset}.png")
-    torch.save(torch.cat(angels3_all), f"analyze/angels3_{args.dataset}.pt")
-    torch.save(torch.cat(angels4_all), f"analyze/angels4_{args.dataset}.pt")
-    torch.save(torch.cat(n_dist), f"analyze/dists_{args.dataset}.pt")
-
-
-def main_analyze_rings_hetro(args):
-    # args.batch_size = 128
-    args.sample_rate = 0.1
-    # args.num_workers = 0
-    train_loader, _, _ = create_data_loaders(args)
-    train_loader.dataset.return_adj = True
-
-    hist_rings = Histogram_discrete("Histogram # rings")
-    dists = []
-    angels3_all = []
-    angels4_all = []
-
-    with tqdm(train_loader, unit="batch") as tepoch:
-        for i, data in enumerate(tepoch):
-            # print(i, len(train_loader))
-            x, node_mask, _, node_features, adj, y = data
-            if args.orientation:
-                n = x.shape[1] // 2
-                x = x[:, :n, :]
-                node_mask = node_mask[:, :n]
-                node_features = node_features[:, :n, :]
-                adj = adj[:, :n, :n]
-            # Histogram num_nodes
-            num_nodes = torch.sum(node_mask, dim=1)
-            num_nodes = list(num_nodes.numpy())
-            hist_rings.add(num_nodes)
-
-            # Histogram edge distances
-            x = x * node_mask.unsqueeze(2)
-            dist = coord2distances(x)
-
-            # Histogram edge distances
-            neighbor_dist = (dist * adj).triu()
-            bonds_index = torch.nonzero(neighbor_dist)
-            atom = node_features.float().argmax(2)
-            bonds_symbols1 = [
-                atom[bonds_index[i, 0], bonds_index[i, 1]]
-                for i in range(bonds_index.shape[0])
-            ]
-            bonds_symbols2 = [
-                atom[bonds_index[i, 0], bonds_index[i, 2]]
-                for i in range(bonds_index.shape[0])
-            ]
-            neighbor_dist = neighbor_dist.flatten()
-            neighbor_dist = neighbor_dist[neighbor_dist != 0]
-            dists += list(zip(bonds_symbols1, bonds_symbols2, neighbor_dist))
-
-            # Histogram of angels
-            angels3, angels4 = get_angels(
-                x, node_features, adj, node_mask, dataset=args.dataset
-            )
-            angels3_all += angels3
-            angels4_all += angels4
-
-    # hist_rings.plot(f'data/hist_rings_{args.dataset}.png')
-    # print(hist_rings.bins)
-
-    # torch.save(dists, f'analyze/dists_{args.dataset}.pt')
-    df = pd.DataFrame(dists, columns=["from", "to", "dist"]).astype(float)
-
-    knots = RINGS_LIST[args.dataset]
-    mapping = {i: k for i, k in enumerate(knots)}
-    df["from"] = df["from"].astype(int).map(mapping)
-    df["to"] = df["to"].astype(int).map(mapping)
-    df.to_pickle(f"analyze/dists_{args.dataset}.pkl")
-
-    a3_symbol = [a[0] for a in angels3_all]
-    a3 = [a[1] for a in angels3_all]
-    df_angels3 = pd.DataFrame(list(zip(a3_symbol, a3)), columns=["symbol", "angel"])
-    df_angels3.to_pickle(f"analyze/angels3_{args.dataset}.pkl")
-
-    a4_symbol = [a[0] for a in angels4_all]
-    a4 = [a[1] for a in angels4_all]
-    df_angels4 = pd.DataFrame(list(zip(a4_symbol, a4)), columns=["symbols", "angel"])
-    df_angels4[["1", "2", "3", "4"]] = pd.DataFrame(
-        df_angels4.symbols.tolist(), index=df_angels4.index
-    )
-    df_angels4.drop(columns=["symbols"], inplace=True)
-    df_angels4.to_pickle(f"analyze/angels4_{args.dataset}.pkl")
-    # torch.save(angels4_all, f'analyze/angels4_{args.dataset}.pt')
-
-
 if __name__ == "__main__":
     args = Args_EDM().parse_args()
     args.dataset = "cata"
-    args.orientation = False
-    # main_analyze_rings(args)
-    # main_analyze_rings_hetro(args)
     main_check_stability(args)

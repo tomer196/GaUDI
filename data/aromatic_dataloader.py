@@ -46,24 +46,23 @@ class AromaticDataset(Dataset):
     def __init__(self, args, task: str = "train"):
         """
         Args:
-            args:
+            args: All the arguments.
             task: Select the dataset to load from (train/val/test).
         """
         self.csv_file, self.xyz_root = get_paths(args)
 
         self.task = task
-        self.target_features = args.target_features.split(",")
         self.rings_graph = args.rings_graph
         self.normalize = args.normalize
-        self.augmentation = args.augmentation  # and task =='train')
-        self.noise_std = getattr(args, "noise_std", 0)
-        self.max_nodes = args.max_nodes if args.rings_graph else 72
+        self.max_nodes = args.max_nodes
         self.return_adj = False
-        self.dataset = getattr(args, "dataset", "cata")
-        self.orientation = getattr(args, "orientation", False)
+        self.dataset = args.dataset
+        self.target_features = getattr(args, "target_features", None)
+        self.target_features = (
+            self.target_features.split(",") if self.target_features else []
+        )
+        self.orientation = False if self.dataset == "cata" else True
         self._edge_mask_orientation = None
-        if self.orientation and not self.rings_graph:
-            raise NotImplementedError("orientation is only available for rings_graph")
         self.atoms_list = ATOMS_LIST[self.dataset]
         self.knots_list = RINGS_LIST[self.dataset]
 
@@ -185,14 +184,7 @@ class AromaticDataset(Dataset):
             y = (y - self.mean) / self.std
 
         # creation of nodes, edges and there features
-        if self.rings_graph:
-            x, adj, node_features, orientation = self.get_rings(df_row)
-        else:  # atoms graph
-            x, adj, node_features = self.get_atoms(df_row)
-
-        # Augmentation on the coordinates
-        if self.augmentation:
-            x += torch.randn_like(x) * self.noise_std
+        x, adj, node_features, orientation = self.get_rings(df_row)
 
         if self.orientation:
             # adjust to max nodes shape
@@ -249,7 +241,6 @@ class AromaticDataset(Dataset):
             if self.return_adj:
                 adj_full = zeros(self.max_nodes, self.max_nodes)
                 adj_full[:n_nodes, :n_nodes] = adj
-        # get_angels(x_full.unsqueeze(0), node_features_full.unsqueeze(0), adj_full.unsqueeze(0), node_mask.unsqueeze(0), self.dataset)
 
         if self.return_adj:
             return x_full, node_mask, edge_mask, node_features_full, adj_full, y
@@ -288,7 +279,9 @@ def get_splits(args, random_seed=42, val_frac=0.1, test_frac=0.1):
     csv_path, _ = get_paths(args)
     if hasattr(args, "dataset") and args.dataset == "hetro":
         targets = (
-            args.target_features.split(",") if args.target_features is not None else []
+            args.target_features.split(",")
+            if getattr(args, "target_features", None) is not None
+            else []
         )
         df = pd.read_csv(csv_path, usecols=["name", "nRings", "inchi"] + targets)
         df.rename(columns={"nRings": "n_rings", "name": "molecule"}, inplace=True)
@@ -348,8 +341,6 @@ def create_data_loaders(args):
 if __name__ == "__main__":
     args = Args_EDM().parse_args()
     # args.dataset = "cata"
-    # args.rings_graph = False
-    # args.orientation = False
     # args.target_features = "GAP_eV"
     train_loader, val_loader, test_loader = create_data_loaders(args)
     # import matplotlib.pyplot as plt

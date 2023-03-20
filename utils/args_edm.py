@@ -1,5 +1,4 @@
 import argparse
-import pathlib
 
 
 class Args_EDM(argparse.ArgumentParser):
@@ -7,55 +6,23 @@ class Args_EDM(argparse.ArgumentParser):
         self,
     ):
         super().__init__(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-        # # data param
-        # self.add_argument('--csv-file',
-        #                   default='/home/tomerweiss/PBHs-design/data/COMPAS-1x.csv',
-        #                   type=str, help='Path to the csv files which contain the molecules names and target features.')
-        # self.add_argument('--xyz-root', default='/home/tomerweiss/PBHs-design/'
-        #                                         'data/peri-cata-89893-xyz', type=str,
-        #                   help='Path to the folder which contains the xyz files.')
-        self.add_argument("--dataset", default="hetro", type=str)
+        # data param
+        self.add_argument("--dataset", default="cata", type=str)
         self.add_argument("--rings_graph", type=bool, default=True)
         self.add_argument("--max-nodes", default=11, type=str)
-        self.add_argument("--orientation", default=True, type=str)
-        # task param
-        # self.add_argument('--target_features', default='LUMO_eV,GAP_eV,Erel_eV,aIP_eV,aEA_eV', type=str,
-        self.add_argument(
-            "--target_features",
-            default="HOMO-LUMO gap/eV,HOMO,electron_affinity e/V," "ionization e/V",
-            type=str,
-        )
-        # self.add_argument(
-        #     "--target_features",
-        #     # default="LUMO_eV,GAP_eV,Erel_eV,aIP_eV,aEA_eV",
-        #     default="GAP_eV",
-        #     type=str,
-        # )
-        self.add_argument("--conditioning", type=bool, default=True)
-        self.add_argument("--sample-rate", type=float, default=1)
-
-        self.add_argument("--num-workers", type=int, default=32)
 
         # training param
-        self.add_argument(
-            # "--name", type=str, default="hetro_l9_c196_orientation2_polynomial_5"
-            "--name",
-            type=str,
-            default="cond/hetro_l9_c196_polynomial_2",
-            # default="test",
-        )
+        self.add_argument("--name", type=str, default="cata-test")
         self.add_argument("--restore", type=bool, default=None)
         self.add_argument("--lr", type=float, default=1e-3, help="Learning rate")
         self.add_argument("--num_epochs", type=int, default=1000)
-        self.add_argument("--augmentation", type=bool, default=False)
         self.add_argument("--normalize", type=bool, default=True)
-
-        self.add_argument("--batch-size", type=int, default=512)
+        self.add_argument("--num-workers", type=int, default=32)
+        self.add_argument("--batch-size", type=int, default=256)
+        self.add_argument("--sample-rate", type=float, default=1)
 
         # Model parameters
-        self.add_argument("--model", type=str, default="egnn_dynamics")
         self.add_argument("--dp", type=eval, default=True, help="Data parallelism")
-        self.add_argument("--condition_time", type=eval, default=True)
         self.add_argument("--clip_grad", type=eval, default=True, help="True | False")
         self.add_argument("--n_layers", type=int, default=9, help="number of layers")
         self.add_argument("--nf", type=int, default=192, help="number of layers")

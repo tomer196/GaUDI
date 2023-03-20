@@ -62,15 +62,8 @@ def reverse_tensor(x):
     return x[torch.arange(x.size(0) - 1, -1, -1)]
 
 
-def sample_chain_pos(args, model, prop_dist, n_tries, n_nodes=10, std=0.7):
+def sample_chain_pos(args, model, n_tries, n_nodes=10, std=0.7):
     n_samples = 1
-
-    if args.context_node_nf > 0:
-        context = prop_dist.sample(n_nodes).unsqueeze(1).unsqueeze(0)
-        context = context.repeat(1, n_nodes, 1).to(args.device)
-        # context = torch.zeros(n_samples, n_nodes, args.context_node_nf).to(args.device)
-    else:
-        context = None
 
     if args.orientation:
         node_mask = torch.ones(n_samples, 2 * n_nodes, 1).to(args.device)
@@ -91,7 +84,7 @@ def sample_chain_pos(args, model, prop_dist, n_tries, n_nodes=10, std=0.7):
 
     for i in range(n_tries):
         chain = model.sample_chain(
-            n_samples, n_nodes, node_mask, edge_mask, context, keep_frames=100, std=std
+            n_samples, n_nodes, node_mask, edge_mask, keep_frames=100, std=std
         )
         chain = reverse_tensor(chain)
 
@@ -132,7 +125,7 @@ def node2edge_mask(node_mask):
     return edge_mask
 
 
-def sample_pos_edm(args, model, prop_dist, nodesxsample, std=0.7, context=None):
+def sample_pos_edm(args, model, nodesxsample, std=0.7):
 
     assert int(torch.max(nodesxsample)) <= args.max_nodes
     batch_size = len(nodesxsample)
@@ -146,7 +139,8 @@ def sample_pos_edm(args, model, prop_dist, nodesxsample, std=0.7, context=None):
     node_mask = node_mask.unsqueeze(2).to(args.device)
     n_nodes = args.max_nodes
 
-    if args.orientation:
+    orientation = args.dataset != "cata"
+    if orientation:
         node_mask = torch.cat([node_mask, node_mask], dim=1)
         edge_mask = torch.cat(
             [
@@ -166,28 +160,14 @@ def sample_pos_edm(args, model, prop_dist, nodesxsample, std=0.7, context=None):
         n_nodes *= 2
     edge_mask = edge_mask.view(-1, 1).to(args.device)
 
-    if args.context_node_nf > 0:
-        if context is None:
-            context = prop_dist.sample_batch(nodesxsample)
-        context = (
-            context.unsqueeze(1).repeat(1, args.max_nodes, 1).to(args.device)
-            * node_mask
-        )
-    else:
-        context = None
-
-    x, h = model.sample(
-        batch_size, n_nodes, node_mask, edge_mask, context=context, std=std
-    )
+    x, h = model.sample(batch_size, n_nodes, node_mask, edge_mask, std=std)
 
     assert_correctly_masked(x, node_mask)
     assert_mean_zero_with_mask(x, node_mask)
     return x, h["categorical"], node_mask, edge_mask
 
 
-def sample_guidance(
-    args, model, target_function, nodesxsample, context, c_steps=1, c_scale=1, std=1.0
-):
+def sample_guidance(args, model, target_function, nodesxsample, scale=1, std=1.0):
 
     # assert int(torch.max(nodesxsample)) <= args.max_nodes
     batch_size = len(nodesxsample)
@@ -200,7 +180,8 @@ def sample_guidance(
     edge_mask = node2edge_mask(node_mask)
     node_mask = node_mask.unsqueeze(2).to(args.device)
 
-    if args.orientation:
+    orientation = args.dataset != "cata"
+    if orientation:
         node_mask = torch.cat([node_mask, node_mask], dim=1)
         edge_mask = torch.cat(
             [
@@ -222,17 +203,12 @@ def sample_guidance(
         max_nodes *= 2
     edge_mask = edge_mask.view(-1, 1).to(args.device)
 
-    if context:
-        context = context.to(args.device)
-
     x, h = model.sample_guidance(
         batch_size,
         target_function,
         node_mask,
         edge_mask,
-        context,
-        c_steps,
-        c_scale,
+        scale,
         fix_noise=False,
         std=std,
     )
@@ -243,12 +219,12 @@ def sample_guidance(
 
 
 def save_and_sample_chain_edm(
-    args, model, prop_dist, dirname, file_name="chain", n_tries=1, std=0.7
+    args, model, dirname, file_name="chain", n_tries=1, std=0.7
 ):
     if not os.path.isdir(dirname):
         os.mkdir(dirname)
     try:
-        x, one_hot = sample_chain_pos(args, model, prop_dist, n_tries, std=std)
+        x, one_hot = sample_chain_pos(args, model, n_tries, std=std)
         atom_type = one_hot.argmax(2)
         plot_chain(
             x,

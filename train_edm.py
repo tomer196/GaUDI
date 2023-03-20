@@ -33,37 +33,26 @@ def check_mask_correct(variables, node_mask):
             assert_correctly_masked(variable, node_mask)
 
 
-def compute_loss_and_nll(model, nodes_dist, x, h, node_mask, edge_mask, context, args):
+def compute_loss(model, x, h, node_mask, edge_mask):
     bs, n_nodes, n_dims = x.size()
     assert_correctly_masked(x, node_mask)
     edge_mask = edge_mask.view(bs, n_nodes * n_nodes)
 
     h = {"categorical": h, "integer": torch.zeros(0).to(x.device)}
 
-    nll = model(x, h, node_mask, edge_mask, context)
-
-    # N = node_mask.squeeze(2).sum(1).long()
-    # if args.orientation:
-    #     N = torch.div(N, 2, rounding_mode="trunc")
-
-    # log_pN = nodes_dist.log_prob(N)
-
-    # assert nll.size() == log_pN.size()
-    # nll = nll - log_pN
+    loss = model(x, h, node_mask, edge_mask)
 
     # Average over batch.
-    nll = nll.mean(0)
+    loss = loss.mean(0)
 
-    return nll
+    return loss
 
 
-def train_epoch(
-    epoch, model, nodes_dist, dataloader, optimizer, args, writer, gradnorm_queue
-):
+def train_epoch(epoch, model, dataloader, optimizer, args, writer, gradnorm_queue):
     model.train()
 
     start_time = time()
-    nll_losses = []
+    losses = []
     grad_norms = []
     with tqdm(dataloader, unit="batch", desc=f"Train {epoch}") as tepoch:
         for i, (x, node_mask, edge_mask, node_features, y) in enumerate(tepoch):
@@ -76,20 +65,7 @@ def train_epoch(
             check_mask_correct([x, h], node_mask)
             assert_mean_zero_with_mask(x, node_mask)
 
-            if args.conditioning:
-                context = (
-                    y[:, None, :].repeat(1, x.shape[1], 1).to(args.device) * node_mask
-                )
-            else:
-                context = None
-
-            # transform batch through flow
-            nll = compute_loss_and_nll(
-                model, nodes_dist, x, h, node_mask, edge_mask, context, args
-            )
-
-            # standard nll from forward KL
-            loss = nll
+            loss = compute_loss(model, x, h, node_mask, edge_mask)
 
             # backprop
             optimizer.zero_grad()
@@ -101,15 +77,15 @@ def train_epoch(
 
             optimizer.step()
 
-            nll_losses.append(nll.item())
-            tepoch.set_postfix(loss=np.mean(nll_losses).item())
+            losses.append(loss.item())
+            tepoch.set_postfix(loss=np.mean(losses).item())
     sleep(0.01)
     print(
-        f"[{epoch}|train] nll loss: {np.mean(nll_losses):.3f}+-{np.std(nll_losses):.3f}, "
+        f"[{epoch}|train] loss: {np.mean(losses):.3f}+-{np.std(losses):.3f}, "
         f"GradNorm: {np.mean(grad_norms):.1f}, "
         f" in {int(time()-start_time)} secs"
     )
-    writer.add_scalar("Train NLL", np.mean(nll_losses), epoch)
+    writer.add_scalar("Train loss", np.mean(losses), epoch)
     writer.add_scalar("Train grad norm", np.mean(grad_norms), epoch)
 
 
@@ -117,7 +93,7 @@ def val_epoch(tag, epoch, model, nodes_dist, prop_dist, dataloader, args, writer
     model.eval()
     with torch.no_grad():
         start_time = time()
-        nll_losses = []
+        losses = []
         with tqdm(dataloader, unit="batch", desc=f"{tag} {epoch}") as tepoch:
             for i, (x, node_mask, edge_mask, node_features, y) in enumerate(tepoch):
                 x = x.to(args.device)
@@ -129,34 +105,23 @@ def val_epoch(tag, epoch, model, nodes_dist, prop_dist, dataloader, args, writer
                 check_mask_correct([x, h], node_mask)
                 assert_mean_zero_with_mask(x, node_mask)
 
-                if args.conditioning:
-                    context = (
-                        y[:, None, :].repeat(1, x.shape[1], 1).to(args.device)
-                        * node_mask
-                    )
-                else:
-                    context = None
-
                 # transform batch through flow
-                nll = compute_loss_and_nll(
-                    model, nodes_dist, x, h, node_mask, edge_mask, context, args
-                )
+                nll = compute_loss(model, x, h, node_mask, edge_mask)
 
-                nll_losses.append(nll.item())
+                losses.append(nll.item())
 
-                tepoch.set_postfix(loss=np.mean(nll_losses).item())
+                tepoch.set_postfix(loss=np.mean(losses).item())
         sleep(0.01)
         print(
-            f"[{epoch}|{tag}] nll loss: {np.mean(nll_losses):.3f}+-{np.std(nll_losses):.3f}, "
+            f"[{epoch}|{tag}] loss: {np.mean(losses):.3f}+-{np.std(losses):.3f}, "
             f" in {int(time() - start_time)} secs"
         )
-        writer.add_scalar(f"{tag} NLL", np.mean(nll_losses), epoch)
+        writer.add_scalar(f"{tag} loss", np.mean(losses), epoch)
 
         if tag == "val" and epoch % 50 == 0 and args.rings_graph:  # and epoch != 0:
             save_and_sample_chain_edm(
                 args,
                 model,
-                prop_dist,
                 dirname=f"{args.exp_dir}/epoch_{epoch}/",
                 std=0.7,
             )
@@ -164,7 +129,7 @@ def val_epoch(tag, epoch, model, nodes_dist, prop_dist, dataloader, args, writer
                 args, model, nodes_dist, prop_dist, epoch=epoch, std=0.7
             )
 
-    return np.mean(nll_losses)
+    return np.mean(losses)
 
 
 def main(args):
@@ -181,7 +146,7 @@ def main(args):
     gradnorm_queue = Queue(max_len=50)
     gradnorm_queue.add(3000)  # Add large value that will be flushed.
 
-    # Save path
+    # Create logger
     writer = SummaryWriter(log_dir=args.exp_dir)
 
     # Run training
@@ -193,7 +158,6 @@ def main(args):
         train_epoch(
             epoch,
             model,
-            nodes_dist,
             train_loader,
             optimizer,
             args,
@@ -219,27 +183,26 @@ def main(args):
 
 
 if __name__ == "__main__":
-    args = Args_EDM().parse_args()
-    args.exp_dir = f"{args.save_dir}/{args.name}"
-    print(args.exp_dir)
-
-    # Create model directory
-    if not os.path.isdir(args.exp_dir):
-        os.makedirs(args.exp_dir)
-
     torch.manual_seed(0)
     np.random.seed(0)
     random.seed(0)
 
+    # getargs and save in the experiment directory
+    args = Args_EDM().parse_args()
+    args.exp_dir = f"{args.save_dir}/{args.name}"
+
+    if not os.path.isdir(args.exp_dir):
+        os.makedirs(args.exp_dir)
+
     with open(args.exp_dir + "/args.txt", "w") as f:
         json.dump(args.__dict__, f, indent=2)
+
     # Automatically choose GPU if available
     args.device = (
         torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     )
 
+    print(args.exp_dir)
     print("Args:", args)
 
-    # Where the magic is
-    # with torch.autograd.detect_anomaly():
     main(args)

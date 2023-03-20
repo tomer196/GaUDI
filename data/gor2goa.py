@@ -1,22 +1,17 @@
-from argparse import Namespace
-
 import torch
-from rdkit import Chem, RDLogger
+from rdkit import Chem
 from rdkit.Chem import Draw
-from tqdm import tqdm
 
 from data import xyz2mol
 from data.aromatic_dataloader import (
     create_data_loaders,
     RINGS_LIST,
     ATOMS_LIST,
-    get_splits,
 )
 from data.ring import RINGS_DICT
 from utils.args_edm import Args_EDM
 from utils.ring_graph import NO_ORIENTATION_RINGS
 from utils.utils import positions2adj
-import networkx as nx
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -276,56 +271,6 @@ def draw_mol(mol, title=""):
     plt.imshow(img)
     plt.title(title)
     plt.show()
-
-
-def analyze_rdkit_valid_for_molecules(
-    molecule_list,
-    tol=0.1,
-    dataset="cata",
-):
-    df_train = get_splits(
-        Namespace(dataset=dataset, target_features=None, max_nodes=11)
-    )[0]
-    if "inchi" in df_train.columns:
-        train_inchi = df_train["inchi"].tolist()
-    else:
-        train_smiles = df_train["smiles"].tolist()
-        train_inchi = [smiles2inchi(s) for s in train_smiles]
-    n_samples = len(molecule_list)
-    molecule_valid_list = []
-    molecule_valid_bool = []
-    valid_inchi = []
-
-    with tqdm(molecule_list, unit="mol") as tq:
-        for i, (x, rings_type) in enumerate(tq):
-            atoms, atoms_types, bonds = gor2goa(
-                x,
-                rings_type,
-                tol=tol,
-                dataset=dataset,
-            )
-            valid, val_ration = rdkit_valid([atoms_types], [bonds], dataset)
-
-            molecule_valid = len(valid) > 0
-            molecule_valid_bool.append(molecule_valid)
-            if molecule_valid:
-                molecule_valid_list.append((x, rings_type))
-                valid_inchi += valid
-
-    novel = set(valid_inchi) - set(train_inchi)
-    unique = set(valid_inchi)
-
-    validity_dict = {
-        "mol_valid": len(valid_inchi) / float(n_samples),
-        "mol_novel": len(novel) / len(valid_inchi),
-        "mol_unique": len(unique) / len(valid_inchi),
-        "molecule_valid_bool": molecule_valid_bool,
-        "valid_inchi": valid_inchi,
-    }
-
-    # print('Validity:', validity_dict)
-
-    return validity_dict, molecule_valid_list
 
 
 def build_molecule_aromatic(atom_types, bonds, dataset):

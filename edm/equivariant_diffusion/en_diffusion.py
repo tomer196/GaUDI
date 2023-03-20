@@ -282,7 +282,7 @@ class EnVariationalDiffusion(torch.nn.Module):
 
     def __init__(
         self,
-        dynamics: models.EGNN_dynamics_QM9,
+        dynamics: models.EGNN_dynamics,
         in_node_nf: int,
         n_dims: int,
         timesteps: int = 1000,
@@ -857,10 +857,8 @@ class EnVariationalDiffusion(torch.nn.Module):
         zt,
         node_mask,
         edge_mask,
-        context,
         target_function,
-        c_steps,
-        c_scale,
+        scale,
         fix_noise=False,
     ):
         """Samples from zs ~ p(zs | zt). Only used during sampling."""
@@ -897,46 +895,27 @@ class EnVariationalDiffusion(torch.nn.Module):
         zs = self.sample_normal(mu, sigma, node_mask, fix_noise)
 
         # guidance
-        weight_t = sigma
-        # weight_t = sigma2_t_given_s / alpha_t_given_s  # EEGSDE
-        for j in range(c_steps):
-            with torch.enable_grad():
-                zs = zs.requires_grad_()
-                # zs_unnormalize = self.unnormalize_z(zs, node_mask)
-                # energy = (
-                #     c_scale
-                #     * target_function(zs_unnormalize, node_mask, edge_mask, t).mean()
-                # )
+        with torch.enable_grad():
+            zs = zs.requires_grad_()
+            energy = scale * target_function(zs, node_mask, edge_mask, t).mean()
+            grad = autograd.grad(energy, zs)[0]
 
-                energy = c_scale * target_function(zs, node_mask, edge_mask, t).mean()
-                # print(t[0,0].item(), j, weight_t[0,0].item(), energy.sum().item())
-                grad = autograd.grad(energy, zs)[0]
+        max_norm = 10
+        grad_norm = grad.norm(dim=[1, 2])
+        clip_coef = max_norm / (grad_norm + 1e-6)
+        clip_coef_clamped = torch.clamp(clip_coef, max=1.0)
+        grad *= clip_coef_clamped[:, None, None]
 
-            max_norm = 10
-            grad_norm = grad.norm(dim=[1, 2])
-            # print(
-            #     int(t[0, 0].item() * 1000),
-            #     grad_norm.max().item(),
-            #     grad_norm.mean().item(),
-            # )
-            clip_coef = max_norm / (grad_norm + 1e-6)
-            clip_coef_clamped = torch.clamp(clip_coef, max=1.0)
-            grad *= clip_coef_clamped[:, None, None]
-            # clip_value = 0.5
-            # grad.clip_(min=-clip_value, max=clip_value)
-            grad = torch.cat(
-                [
-                    diffusion_utils.remove_mean_with_mask(
-                        grad[:, :, : self.n_dims], node_mask
-                    ),
-                    grad[:, :, self.n_dims :],
-                ],
-                dim=2,
-            )
-
-            # grad_max = torch.max(grad)
-            # print(t[0,0].item(), grad.abs().max().item(), weight_t[0,0].item(), mu.abs().max().item())
-            zs = zs - weight_t * grad
+        grad = torch.cat(
+            [
+                diffusion_utils.remove_mean_with_mask(
+                    grad[:, :, : self.n_dims], node_mask
+                ),
+                grad[:, :, self.n_dims :],
+            ],
+            dim=2,
+        )
+        zs = zs - sigma * grad
 
         # Project down to avoid numerical runaway of the center of gravity.
         zs = torch.cat(
@@ -952,13 +931,7 @@ class EnVariationalDiffusion(torch.nn.Module):
         tt = int(t[0, 0].item() * 1000)
         if tt % 100 == 0:
             print(f"Iteration {tt}/1000 done")
-        return (
-            zs,
-            grad.abs().max().item(),
-            weight_t[0, 0].item(),
-            zs.abs().max().item(),
-            sigma[0, 0].item(),
-        )
+        return zs
 
     def sample_combined_position_feature_noise(
         self, n_samples, n_nodes, node_mask, std=1.0
@@ -988,7 +961,7 @@ class EnVariationalDiffusion(torch.nn.Module):
         n_nodes,
         node_mask,
         edge_mask,
-        context,
+        context=None,
         fix_noise=False,
         std=1.0,
     ):
@@ -1040,9 +1013,7 @@ class EnVariationalDiffusion(torch.nn.Module):
         target_function,
         node_mask,
         edge_mask,
-        context,
-        c_steps=1,
-        c_scale=1,
+        scale=1,
         fix_noise=False,
         std=1.0,
     ):
@@ -1057,7 +1028,6 @@ class EnVariationalDiffusion(torch.nn.Module):
 
         diffusion_utils.assert_mean_zero_with_mask(z[:, :, : self.n_dims], node_mask)
 
-        grad_l, weight_t_l, max_l, sigma_l = [], [], [], []
         # Iteratively sample p(z_s | z_t) for t = 1, ..., T, with s = t - 1.
         for s in reversed(range(0, self.T)):
             s_array = torch.full((n_samples, 1), fill_value=s, device=z.device)
@@ -1065,22 +1035,16 @@ class EnVariationalDiffusion(torch.nn.Module):
             s_array = s_array / self.T
             t_array = t_array / self.T
 
-            z, grad, weight_t, max, sigma = self.sample_p_zs_given_zt_guidance(
+            z = self.sample_p_zs_given_zt_guidance(
                 s_array,
                 t_array,
                 z,
                 node_mask,
                 edge_mask,
-                context,
                 target_function,
-                c_steps,
-                c_scale,
+                scale,
                 fix_noise=fix_noise,
             )
-            # grad_l.append(grad)
-            # weight_t_l.append(weight_t)
-            # max_l.append(max)
-            # sigma_l.append(sigma)
 
         # Finally sample p(x, h | z_0).
         x, h = self.sample_p_xh_given_z0(

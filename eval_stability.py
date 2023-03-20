@@ -3,9 +3,11 @@ import math
 import random
 import warnings
 
-from analyze.analyze import analyze_stability_for_molecules
+from analyze.analyze import (
+    analyze_stability_for_molecules,
+    analyze_rdkit_valid_for_molecules,
+)
 from data.aromatic_dataloader import create_data_loaders
-from data.gor2goa import analyze_rdkit_valid_for_molecules
 from models_edm import get_model
 from sampling_edm import sample_pos_edm, save_and_sample_chain_edm
 from utils.args_edm import Args_EDM
@@ -18,26 +20,19 @@ import numpy as np
 import torch
 
 
-def analyze_and_save(args, model, nodes_dist, prop_dist, n_samples=1000):
+def analyze_and_save(args, model, nodes_dist, n_samples=1000, n_chains=1):
     print("-" * 20)
     print("Generate molecules...")
-
-    n_nodes = 10
-    # args.max_nodes = 72
-    nodesxsample = torch.Tensor([n_nodes] * args.batch_size).long()
-    if args.conditioning:
-        context = prop_dist.sample_batch(nodesxsample)
-        context = prop_dist.normalize(context)
-    else:
-        context = None
 
     molecule_list = []
     n_samples = math.ceil(n_samples / args.batch_size) * args.batch_size
     for i in range(n_samples // args.batch_size):
         n_samples = min(args.batch_size, n_samples)
-        # nodesxsample = nodes_dist.sample(n_samples)
+        nodesxsample = nodes_dist.sample(n_samples)
         x, one_hot, node_mask, edge_mask = sample_pos_edm(
-            args, model, prop_dist, nodesxsample, std=1.0, context=context
+            args,
+            model,
+            nodesxsample,
         )
 
         x = x.cpu().detach()
@@ -51,9 +46,9 @@ def analyze_and_save(args, model, nodes_dist, prop_dist, n_samples=1000):
     print(f"{len(molecule_list)} molecules generated, starting analysis")
 
     stability_dict, molecule_stable_list = analyze_stability_for_molecules(
-        molecule_list, args.tol, dataset=args.dataset, orientation=args.orientation
+        molecule_list, dataset=args.dataset
     )
-    print(f"Stability for {args.exp_dir}, tolerance {args.tol:.1%}")
+    print(f"Stability for {args.exp_dir}")
     for key, value in stability_dict.items():
         try:
             print(f"   {key}: {value:.2%}")
@@ -61,9 +56,9 @@ def analyze_and_save(args, model, nodes_dist, prop_dist, n_samples=1000):
             pass
 
     stability_dict, molecule_stable_list = analyze_rdkit_valid_for_molecules(
-        molecule_list, args.tol, dataset=args.dataset
+        molecule_list, dataset=args.dataset
     )
-    print(f"RDkit validity for {args.exp_dir}, tolerance {args.tol:.1%}")
+    print(f"RDkit validity for {args.exp_dir}")
     for key, value in stability_dict.items():
         try:
             print(f"   {key}: {value:.2%}")
@@ -81,7 +76,6 @@ def analyze_and_save(args, model, nodes_dist, prop_dist, n_samples=1000):
                 x,
                 atom_type,
                 filename=f"{args.exp_dir}/{title}.png",
-                tol=args.tol,
                 dataset=args.dataset,
             )
     if len(molecule_stable_list) != 0:
@@ -93,25 +87,25 @@ def analyze_and_save(args, model, nodes_dist, prop_dist, n_samples=1000):
                 x,
                 atom_type,
                 filename=f"{args.exp_dir}/{title}.png",
-                tol=args.tol,
                 dataset=args.dataset,
             )
 
     # create chains
-    for i in range(args.n_chains):
+    for i in range(n_chains):
         save_and_sample_chain_edm(
             args,
             model,
-            prop_dist,
             dirname=args.exp_dir,
             file_name=f"chain{i}",
-            std=0.7,
             n_tries=10,
         )
     return stability_dict
 
 
 def main(args):
+    n_samples = 256
+    n_chains = 1
+
     # Prepare data
     train_loader, val_loader, test_loader = create_data_loaders(args)
 
@@ -119,40 +113,26 @@ def main(args):
 
     # Analyze stability, validity, uniqueness and novelty
     with torch.no_grad():
-        analyze_and_save(args, model, nodes_dist, prop_dist, n_samples=args.n_samples)
+        analyze_and_save(
+            args, model, nodes_dist, n_samples=n_samples, n_chains=n_chains
+        )
 
 
 if __name__ == "__main__":
-    args = Args_EDM().parse_args()
-
-    # args.name = 'pos_lr_1e-3_reg_1e-2_1000'
-    # args.name = 'pos_lr_1e-3_reg_1e-2_save'
-    args.name = "EDM_6_192_range4"
-    args.name = "cond/lumo_gap_erel_ip_ea_uncond"
-    # args.name = 'test-hetro'
-    args.name = "hetro_l9_c196_orientation2"
-    # args.name = "cata_l9_c196_polynomial_2"
-    # args.name = "atoms/cata_l9_c196_polynomial_2"
-    args.exp_dir = f"{args.save_dir}/{args.name}"
-    print(args.exp_dir)
-
     torch.manual_seed(0)
     np.random.seed(0)
     random.seed(0)
 
+    args = Args_EDM().parse_args()
+
+    args.name = "cata-test"
+    args.exp_dir = f"{args.save_dir}/{args.name}"
+    print(args.exp_dir)
+
     with open(args.exp_dir + "/args.txt", "r") as f:
         args.__dict__ = json.load(f)
     args.restore = True
-    args.n_samples = 1000
-    # args.batch_size = 256
-    args.n_chains = 0
-    args.tol = 0.1
-    if not hasattr(args, "coords_range"):
-        args.coords_range = 15
-    if not hasattr(args, "conditioning"):
-        args.conditioning = False
-    if not hasattr(args, "dataset"):
-        args.dataset = "cata"
+
     # Automatically choose GPU if available
     args.device = (
         torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
