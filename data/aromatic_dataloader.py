@@ -130,13 +130,10 @@ class AromaticDataset(Dataset):
 
     def get_rings(self, df_row):
         name = df_row["molecule"]
+        os.makedirs(self.xyz_root + "_rings_preprocessed", exist_ok=True)
         preprocessed_path = self.xyz_root + "_rings_preprocessed/" + name + ".xyz"
         if Path(preprocessed_path).is_file():
-            if self.orientation:
-                x, adj, node_features, orientation = torch.load(preprocessed_path)
-            else:
-                x, adj, node_features = torch.load(preprocessed_path)
-                orientation = False
+            x, adj, node_features, orientation = torch.load(preprocessed_path)
         else:
             mol, edges, atom_connectivity, _ = self.get_mol(df_row, skip_hydrogen=True)
             # get_figure(mol, edges, showPlot=True, filename='4.png')
