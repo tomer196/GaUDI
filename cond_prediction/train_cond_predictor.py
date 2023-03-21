@@ -248,10 +248,6 @@ def main(pred_args, edm_args):
             best_val_loss = val_loss
             best_epoch = epoch
             torch.save(cond_predictor.state_dict(), pred_args.exp_dir + "/model.pt")
-        if epoch % 50 == 0 and epoch != 0:
-            shutil.copy(
-                pred_args.exp_dir + "/model.pt", pred_args.exp_dir + f"/model{epoch}.pt"
-            )
 
     print(f"{best_epoch=}, {best_val_loss=:.4f}")
     cond_predictor.load_state_dict(torch.load(pred_args.exp_dir + "/model.pt"))

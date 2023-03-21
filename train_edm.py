@@ -118,7 +118,7 @@ def val_epoch(tag, epoch, model, nodes_dist, prop_dist, dataloader, args, writer
         )
         writer.add_scalar(f"{tag} loss", np.mean(losses), epoch)
 
-        if tag == "val" and epoch % 50 == 0 and args.rings_graph:  # and epoch != 0:
+        if tag == "val" and epoch % 50 == 0 and args.rings_graph:
             save_and_sample_chain_edm(
                 args,
                 model,
@@ -171,8 +171,6 @@ def main(args):
             best_val_loss = val_loss
             best_epoch = epoch
             torch.save(model.state_dict(), args.exp_dir + "/model.pt")
-        if epoch % 50 == 0 and epoch != 0:
-            shutil.copy(args.exp_dir + "/model.pt", args.exp_dir + f"/model{epoch}.pt")
 
     print(f"{best_epoch=}, {best_val_loss=:.4f}")
     model.load_state_dict(torch.load(args.exp_dir + "/model.pt"))
