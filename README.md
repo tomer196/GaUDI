@@ -38,9 +38,11 @@ python generation_guidance.py
 
 ## preparations
 1. Download repo.  
-2. Download dataset (`csv` + `xyz`s) from [COMPAS](https://gitlab.com/porannegroup/compas)
-3. Update `csv` + `xyz`s paths in `get_paths@data/aromatic_dataloaders.py`
-4. Install conda environment according to the instruction below
+2. Download dataset (`csv` + `xyz`s) from:  
+  a. cc-PBH dataset from [COMPAS](https://gitlab.com/porannegroup/compas).  
+  b. PASs dataset from [link](https://zenodo.org/record/7798697#.ZCwls-zP1hE).  
+4. Update `csv` + `xyz`s paths in `get_paths@data/aromatic_dataloaders.py`.
+5. Install conda environment according to the instruction below.
 
 ## Dependencies
 ```
