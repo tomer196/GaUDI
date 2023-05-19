@@ -12,10 +12,14 @@ prediction model.
 ```
 python train_edm.py
 ```
+This will take 4 hours to train on a single GPU for the cc-PBH dataset. The logs and trained model will be saved in `<save_dir>/<name>`.  
+
+
 2. set the required configuration in `cond_prediction/prediction_args.py` and run:
 ```
 python cond_prediction/train_cond_predictor.py
 ```
+The logs and trained model will be saved in `<save_dir>/<name>`. 
 
 ### Validity evaluation
 We can evaluate the stability of the diffusion model by unconditional molecules generation
@@ -23,6 +27,7 @@ by updating the experiment name we want to evaluate in line 128 and run:
 ```
 python eval_validity.py
 ```
+Results should be as the results in Table 1 in the paper.
 
 
 ### Conditional generation using guided diffusion
@@ -35,6 +40,8 @@ in `generation_guidance.py` lines 225 and 233.
 ```
 python generation_guidance.py
 ```
+When finished summary of the results will be printed on screen and the 5 best generated molecules will be saved in `<save_dir>/<name>`. 
+
 
 ## preparations
 1. Download repo.  
@@ -51,3 +58,5 @@ conda activate <env_name>
 conda install pytorch=1.10 rdkit
 pip install matplotlib networkx tensorboard pandas scipy
 ```
+Testd on Ubuntu 20.04 with the following libarys varsions:
+pytorch=1.10, matplotlib=3.7.1, networkx=3.0, tensorboard=2.9.1, pandas=1.4.1, scipy=1.10.1
