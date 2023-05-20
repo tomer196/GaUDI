@@ -4,6 +4,9 @@ The holy grail of material science is \emph{de novo} molecular design -- i.e., t
 
 ![GUDI workflow](GaUDI.png)
 
+For more information, refer to our paper *Guided Diffusion for Inverse Molecular Design* (preprint) 
+https://chemrxiv.org/engage/chemrxiv/article-details/642c221aa029a26b4ce5d696
+
 ## Setup
 1. Clone this repository by invoking
 ```
