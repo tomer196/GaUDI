@@ -4,7 +4,7 @@ The holy grail of material science is \emph{de novo} molecular design -- i.e., t
 
 ![GUDI workflow](GaUDI.png)
 
-## Environment setup
+## Setup
 1. Clone this repository by invoking
 ```
 git clone https://github.com/tomer196/GaUDI.git
@@ -17,7 +17,7 @@ git clone https://github.com/tomer196/GaUDI.git
 ```
 conda env create -n GaUDI --file environment.yml
 ```
-or mannually:
+Alternatively, dependencies can be installed manually as follows:
 ```
 conda create -n <env_name> python=3.8
 conda activate <env_name>
@@ -26,25 +26,25 @@ pip install matplotlib networkx tensorboard pandas scipy
 ```
 
 ## Usage
-First we need to train the unconditioned diffusion model and the time conditioned 
-prediction model.
+First, we need to train the unconditioned diffusion model (EDM) and the time-conditioned 
+property prediction model.
+
 ### Training
-1. set the required configuration in `utils/args_edm.py` and run:
+1. To train the EDM, set the required configuration in `utils/args_edm.py` and run:
 ```
 python train_edm.py
 ```
 This will take 4 hours to train on a single GPU for the cc-PBH dataset. The logs and trained model will be saved in `<save_dir>/<name>`.  
 
-
-2. set the required configuration in `cond_prediction/prediction_args.py` and run:
+2. To train the predictor, set the required configuration in `cond_prediction/prediction_args.py` and run:
 ```
 python cond_prediction/train_cond_predictor.py
 ```
 The logs and trained model will be saved in `<save_dir>/<name>`. 
 
 ### Validity evaluation
-We can evaluate the stability of the diffusion model by unconditional molecules generation
-by updating the experiment name we want to evaluate in line 128 and run:
+To evaluate stability of the unconditional diffusion model,
+updatie the experiment name in line 128 of `eval_validity.py` and run:
 ```
 python eval_validity.py
 ```
@@ -52,16 +52,17 @@ Results should be as the results in Table 1 in the paper.
 
 
 ### Conditional generation using guided diffusion
-Finally we can start design molecules using the diffusion model. 
+Finally, we can start designing molecules using the guided diffusion model. In order to sample from the guided model, follow these steps:
+
 1. Configure the paths to the diffusion model and the time conditioned prediction model 
 in `generation_guidance.py` lines 225 and 233.
 2. Define a target function.
-3. Set the gradient scale and number of desired molecules
-4. Run:
+4. Set the gradient scale and number of desired molecules
+5. Run:
 ```
 python generation_guidance.py
 ```
-When finished summary of the results will be printed on screen and the 5 best generated molecules will be saved in `<save_dir>/<name>`. 
+When finished, a summary of the results will be printed to `stdout` and the 5 best generated molecules will be saved in `<save_dir>/<name>`. 
 
 Testd on Ubuntu 20.04 with the following libarys varsions:
-pytorch=1.10, matplotlib=3.7.1, networkx=3.0, tensorboard=2.9.1, pandas=1.4.1, scipy=1.10.1
+`pytorch=1.10, matplotlib=3.7.1, networkx=3.0, tensorboard=2.9.1, pandas=1.4.1, scipy=1.10.1`
