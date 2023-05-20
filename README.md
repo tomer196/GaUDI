@@ -64,6 +64,8 @@ python generation_guidance.py
 ```
 When finished, a summary of the results will be printed to `stdout` and the 5 best generated molecules will be saved in `<save_dir>/<name>`. 
 
+## Notes
+
 Testd on Ubuntu 20.04 with the following libarys varsions:
 `pytorch=1.10, matplotlib=3.7.1, networkx=3.0, tensorboard=2.9.1, pandas=1.4.1, scipy=1.10.1`
 
