@@ -66,3 +66,12 @@ When finished, a summary of the results will be printed to `stdout` and the 5 be
 
 Testd on Ubuntu 20.04 with the following libarys varsions:
 `pytorch=1.10, matplotlib=3.7.1, networkx=3.0, tensorboard=2.9.1, pandas=1.4.1, scipy=1.10.1`
+
+Note: equivariant diffusion model (EDM) code provided here includes portions of the code by Emiel Hoogeboom, Victor Garcia Satorras, Clément Vignac
+from 
+```
+https://github.com/ehoogeboom/e3_diffusion_for_molecules
+```
+distributed under the MIT license. For more information, refer to the license file in `./edm`.
+
+
