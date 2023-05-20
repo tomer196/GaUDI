@@ -4,6 +4,27 @@ The holy grail of material science is \emph{de novo} molecular design -- i.e., t
 
 ![GUDI workflow](GaUDI.png)
 
+## Environment setup
+1. Clone this repository by invoking
+```
+git clone https://github.com/tomer196/GaUDI.git
+```
+2. Download datasets (`csv` + `xyz`s) from:  
+  a. cc-PBH dataset from [COMPAS](https://gitlab.com/porannegroup/compas).  
+  b. PASs dataset from [link](https://zenodo.org/record/7798697#.ZCwls-zP1hE).  
+3. Update `csv` + `xyz`s paths in `get_paths@data/aromatic_dataloaders.py`.
+4. Install conda environment. The environment can be installed using the `environment.yml` by invoking
+```
+conda env create -n GaUDI --file environment.yml
+```
+or mannually:
+```
+conda create -n <env_name> python=3.8
+conda activate <env_name>
+conda install pytorch=1.10 rdkit
+pip install matplotlib networkx tensorboard pandas scipy
+```
+
 ## Usage
 First we need to train the unconditioned diffusion model and the time conditioned 
 prediction model.
@@ -42,26 +63,5 @@ python generation_guidance.py
 ```
 When finished summary of the results will be printed on screen and the 5 best generated molecules will be saved in `<save_dir>/<name>`. 
 
-
-## preparations
-1. Download repo.  
-2. Download dataset (`csv` + `xyz`s) from:  
-  a. cc-PBH dataset from [COMPAS](https://gitlab.com/porannegroup/compas).  
-  b. PASs dataset from [link](https://zenodo.org/record/7798697#.ZCwls-zP1hE).  
-4. Update `csv` + `xyz`s paths in `get_paths@data/aromatic_dataloaders.py`.
-5. Install conda environment according to the instruction below.
-
-## Dependencies
-The environment can be installed using the `environment.yml` file:
-```
-conda env create -n GaUDI --file environment.yml
-```
-Or mannually:
-```
-conda create -n <env_name> python=3.8
-conda activate <env_name>
-conda install pytorch=1.10 rdkit
-pip install matplotlib networkx tensorboard pandas scipy
-```
 Testd on Ubuntu 20.04 with the following libarys varsions:
 pytorch=1.10, matplotlib=3.7.1, networkx=3.0, tensorboard=2.9.1, pandas=1.4.1, scipy=1.10.1
