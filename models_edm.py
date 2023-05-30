@@ -98,8 +98,8 @@ def get_model(args, dataloader_train, only_norm=False):
     if args.dp:  # and torch.cuda.device_count() > 1:
         model = MyDataParallel(model)
     if args.restore is not None:
-        model_state_dict = torch.load(args.exp_dir + "/model.pt")
-        model.load_state_dict(model_state_dict, map_location=args.device)
+        model_state_dict = torch.load(args.exp_dir + "/model.pt", map_location=args.device)
+        model.load_state_dict(model_state_dict)
 
     return model, nodes_dist, prop_dist
 

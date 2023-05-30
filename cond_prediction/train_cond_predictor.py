@@ -198,8 +198,8 @@ def get_cond_predictor_model(args, dataset: AromaticDataset):
     if args.dp:  # and torch.cuda.device_count() > 1:
         cond_predictor = MyDataParallel(cond_predictor)
     if args.restore is not None:
-        model_state_dict = torch.load(args.exp_dir + "/model.pt")
-        cond_predictor.load_state_dict(model_state_dict, map_location=args.device)
+        model_state_dict = torch.load(args.exp_dir + "/model.pt", map_location=args.device)
+        cond_predictor.load_state_dict(model_state_dict)
     return cond_predictor
 
 
