@@ -181,15 +181,8 @@ def analyze_rdkit_validity_for_molecules(
     molecule_list,
     tol=0.1,
     dataset="cata",
+    calc_novelty=False
 ):
-    df_train = get_splits(
-        Namespace(dataset=dataset, target_features=None, max_nodes=11)
-    )[0]
-    if "inchi" in df_train.columns:
-        train_inchi = df_train["inchi"].tolist()
-    else:
-        train_smiles = df_train["smiles"].tolist()
-        train_inchi = [smiles2inchi(s) for s in train_smiles]
     n_samples = len(molecule_list)
     molecule_valid_list = []
     molecule_valid_bool = []
@@ -214,16 +207,26 @@ def analyze_rdkit_validity_for_molecules(
                 molecule_valid_list.append((x, rings_type))
                 valid_inchi += valid
 
-    novel = set(valid_inchi) - set(train_inchi)
     unique = set(valid_inchi)
 
     validity_dict = {
         "mol_valid": len(valid_inchi) / float(n_samples),
-        "mol_novel": len(novel) / max(len(valid_inchi), 1),
         "mol_unique": len(unique) / max(len(valid_inchi), 1),
         "molecule_valid_bool": molecule_valid_bool,
         "valid_inchi": valid_inchi,
     }
+    if calc_novelty:
+        df_train = get_splits(
+            Namespace(dataset=dataset, target_features=None, max_nodes=11)
+        )[0]
+        if "inchi" in df_train.columns:
+            train_inchi = df_train["inchi"].tolist()
+        else:
+            train_smiles = df_train["smiles"].tolist()
+            train_inchi = [smiles2inchi(s) for s in train_smiles]
+
+        novel = set(valid_inchi) - set(train_inchi)
+        validity_dict["mol_novel"] = len(novel) / max(len(valid_inchi), 1)
 
     return validity_dict, molecule_valid_list
 
