@@ -312,7 +312,8 @@ def rdkit_valid(atoms_types, bonds, dataset="cata"):
             if len(mol) == 1:
                 mol = mol[0]
                 Chem.SanitizeMol(mol)
-                is_valid = True
+                if len(Chem.GetMolFrags(mol, asMols=True)) == 1:
+                    is_valid = True
         except:
             pass
 

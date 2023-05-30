@@ -58,8 +58,8 @@ class DistributionRings:
         return log_probs
 
 
-def get_model(args, dataloader_train):
-    prop_dist = DistributionProperty(args, dataloader_train)
+def get_model(args, dataloader_train, only_norm=False):
+    prop_dist = DistributionProperty(args, dataloader_train, only_norm=only_norm)
 
     in_node_nf = dataloader_train.dataset.num_node_features
     nodes_dist = DistributionRings(getattr(args, "dataset", "cata"))
@@ -105,23 +105,24 @@ def get_model(args, dataloader_train):
 
 
 class DistributionProperty:
-    def __init__(self, args, dataloader, num_bins=1000, normalizer=None):
+    def __init__(self, args, dataloader, num_bins=1000, only_norm=False):
         self.num_bins = num_bins
         self.distributions = {}
-        self.properties = dataloader.dataset.target_features
         self.mean = dataloader.dataset.mean
         self.std = dataloader.dataset.std
-        self.args = args
-        for i, prop in enumerate(self.properties):
-            self.distributions[prop] = {}
-            data = torch.Tensor(dataloader.dataset.df[prop])
-            if dataloader.dataset.normalize:
-                data = (data - self.mean[i]) / self.std[i]
-            self._create_prob_dist(
-                torch.Tensor(dataloader.dataset.df["n_rings"]),
-                data,
-                self.distributions[prop],
-            )
+        if not only_norm:
+            self.args = args
+            self.properties = dataloader.dataset.target_features
+            for i, prop in enumerate(self.properties):
+                self.distributions[prop] = {}
+                data = torch.Tensor(dataloader.dataset.df[prop])
+                if dataloader.dataset.normalize:
+                    data = (data - self.mean[i]) / self.std[i]
+                self._create_prob_dist(
+                    torch.Tensor(dataloader.dataset.df["n_rings"]),
+                    data,
+                    self.distributions[prop],
+                )
 
     def _create_prob_dist(self, nodes_arr, values, distribution):
         min_nodes, max_nodes = torch.min(nodes_arr), torch.max(nodes_arr)
