@@ -20,7 +20,7 @@ from cond_prediction.train_cond_predictor import (
     compute_loss,
 )
 from utils.args_edm import Args_EDM
-from utils.utils import get_cond_predictor_args
+from utils.helpers import get_cond_predictor_args
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
 

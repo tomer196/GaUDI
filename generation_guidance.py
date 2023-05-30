@@ -23,7 +23,7 @@ from data.aromatic_dataloader import create_data_loaders
 
 from utils.args_edm import Args_EDM
 from utils.plotting import plot_graph_of_rings, plot_rdkit
-from utils.utils import switch_grad_off, get_edm_args, get_cond_predictor_args
+from utils.helpers import switch_grad_off, get_edm_args, get_cond_predictor_args
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
 

@@ -7,7 +7,7 @@ from edm.egnn.models import EGNN_dynamics
 from edm.equivariant_diffusion.en_diffusion import EnVariationalDiffusion
 from edm.egnn.egnn_new import EGNN, GNN
 from edm.equivariant_diffusion.utils import remove_mean, remove_mean_with_mask
-from utils.utils import analyzed_rings
+from utils.helpers import analyzed_rings
 
 
 class MyDataParallel(nn.DataParallel):

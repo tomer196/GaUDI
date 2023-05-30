@@ -10,7 +10,7 @@ import numpy as np
 from data.aromatic_dataloader import create_data_loaders, RINGS_LIST, get_splits
 from data.gor2goa import rdkit_valid, gor2goa, smiles2inchi
 from utils.args_edm import Args_EDM
-from utils.utils import (
+from utils.helpers import (
     positions2adj,
     ring_distances,
     angels3_dict,

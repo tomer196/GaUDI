@@ -13,7 +13,7 @@ from data.gor2goa import gor2goa, rdkit_valid
 # from matplotlib import cm
 # import networkx as nx
 
-from utils.utils import positions2adj
+from utils.helpers import positions2adj
 
 
 def align_to_xy_plane(x):

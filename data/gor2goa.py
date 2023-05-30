@@ -11,7 +11,7 @@ from data.aromatic_dataloader import (
 from data.ring import RINGS_DICT
 from utils.args_edm import Args_EDM
 from utils.ring_graph import NO_ORIENTATION_RINGS
-from utils.utils import positions2adj
+from utils.helpers import positions2adj
 import matplotlib.pyplot as plt
 import numpy as np
 
