@@ -1,10 +1,8 @@
-from time import time
 from typing import Tuple
 import json
 
 import torch
 from torch import Tensor
-import pandas as pd
 
 from cond_prediction.prediction_args import PredictionArgs
 from data.aromatic_dataloader import RINGS_LIST
@@ -204,7 +202,7 @@ def switch_grad_off(models):
             p.requires_grad = False
 
 def get_edm_args(exp_dir_path):
-    args = Args_EDM().parse_args()
+    args = Args_EDM().parse_args([])
     with open(exp_dir_path + "/args.txt", "r") as f:
         args.__dict__ = json.load(f)
     args.restore = True
@@ -215,7 +213,7 @@ def get_edm_args(exp_dir_path):
     return args
 
 def get_cond_predictor_args(exp_dir_path):
-    args = PredictionArgs().parse_args()
+    args = PredictionArgs().parse_args([])
     with open(exp_dir_path + "/args.txt", "r") as f:
         args.__dict__ = json.load(f)
     args.restore = True

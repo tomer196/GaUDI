@@ -74,10 +74,10 @@ def eval_stability(x, one_hot, node_mask, edge_mask, dataset="cata"):
         molecule_list, dataset=dataset
     )
     x = x[stability_dict["molecule_valid_bool"]]
-    atom_type = atom_type[stability_dict["molecule_valid_bool"]]
+    one_hot = one_hot[stability_dict["molecule_valid_bool"]]
     node_mask = node_mask[stability_dict["molecule_valid_bool"]]
     edge_mask = edge_mask.view(bs, n, n)[stability_dict["molecule_valid_bool"]].view(-1, 1)
-    return stability_dict, x, atom_type, node_mask, edge_mask
+    return stability_dict, x, one_hot, node_mask, edge_mask
 
 
 def sample_z(mu, sigma, n_samples):
