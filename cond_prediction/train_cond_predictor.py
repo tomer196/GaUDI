@@ -199,7 +199,7 @@ def get_cond_predictor_model(args, dataset: AromaticDataset):
         cond_predictor = MyDataParallel(cond_predictor)
     if args.restore is not None:
         model_state_dict = torch.load(args.exp_dir + "/model.pt")
-        cond_predictor.load_state_dict(model_state_dict)
+        cond_predictor.load_state_dict(model_state_dict, map_location=args.device)
     return cond_predictor
 
 

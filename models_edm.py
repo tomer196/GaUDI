@@ -99,7 +99,7 @@ def get_model(args, dataloader_train, only_norm=False):
         model = MyDataParallel(model)
     if args.restore is not None:
         model_state_dict = torch.load(args.exp_dir + "/model.pt")
-        model.load_state_dict(model_state_dict)
+        model.load_state_dict(model_state_dict, map_location=args.device)
 
     return model, nodes_dist, prop_dist
 
