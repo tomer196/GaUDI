@@ -306,12 +306,15 @@ def rdkit_valid(atoms_types, bonds, dataset="cata"):
             a = Chem.Atom(atom.GetSymbol())
             rwmol.AddAtom(a)
 
+        is_valid = False
         try:
-            mol = xyz2mol.AC2mol(rwmol, AC, atoms, 0)[0]
-            Chem.SanitizeMol(mol)
-            is_valid = True
+            mol = xyz2mol.AC2mol(rwmol, AC, atoms, 0)
+            if len(mol) == 1:
+                mol = mol[0]
+                Chem.SanitizeMol(mol)
+                is_valid = True
         except:
-            is_valid = False
+            pass
 
         if is_valid:
             smiles = Chem.MolToSmiles(mol, isomericSmiles=False)

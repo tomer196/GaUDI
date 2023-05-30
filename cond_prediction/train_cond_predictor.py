@@ -196,7 +196,6 @@ def get_cond_predictor_model(args, dataset: AromaticDataset):
     )
 
     if args.dp:  # and torch.cuda.device_count() > 1:
-        print(f"Training using {torch.cuda.device_count()} GPUs")
         cond_predictor = MyDataParallel(cond_predictor)
     if args.restore is not None:
         model_state_dict = torch.load(args.exp_dir + "/model.pt")

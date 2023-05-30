@@ -96,7 +96,6 @@ def get_model(args, dataloader_train):
     )
 
     if args.dp:  # and torch.cuda.device_count() > 1:
-        print(f"Training using {torch.cuda.device_count()} GPUs")
         model = MyDataParallel(model)
     if args.restore is not None:
         model_state_dict = torch.load(args.exp_dir + "/model.pt")

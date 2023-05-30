@@ -13,6 +13,7 @@ from torch.nn import functional as F
 from edm.equivariant_diffusion import utils as diffusion_utils
 from torch.utils.checkpoint import checkpoint
 from edm.equivariant_diffusion.utils import remove_mean_with_mask
+from tqdm import tqdm
 
 
 # Defining some useful util functions.
@@ -877,6 +878,7 @@ class EnVariationalDiffusion(torch.nn.Module):
         # Neural net prediction.
         with torch.no_grad():
             eps_t = self.phi(zt, t, node_mask, edge_mask, context=None)
+            eps_t = eps_t.nan_to_num(0.)
 
         # Compute mu for p(zs | zt).
         diffusion_utils.assert_mean_zero_with_mask(zt[:, :, : self.n_dims], node_mask)
@@ -928,9 +930,8 @@ class EnVariationalDiffusion(torch.nn.Module):
             dim=2,
         )
         # print(t[0,0].item(), grad.abs().max().item(), weight_t[0,0].item(), zs.abs().max().item())
-        tt = int(t[0, 0].item() * 1000)
-        if tt % 100 == 0:
-            print(f"Iteration {tt}/1000 done")
+        if torch.isnan(zs).any():
+            zs = zs.nan_to_num(0.)
         return zs
 
     def sample_combined_position_feature_noise(
@@ -1029,22 +1030,24 @@ class EnVariationalDiffusion(torch.nn.Module):
         diffusion_utils.assert_mean_zero_with_mask(z[:, :, : self.n_dims], node_mask)
 
         # Iteratively sample p(z_s | z_t) for t = 1, ..., T, with s = t - 1.
-        for s in reversed(range(0, self.T)):
-            s_array = torch.full((n_samples, 1), fill_value=s, device=z.device)
-            t_array = s_array + 1
-            s_array = s_array / self.T
-            t_array = t_array / self.T
+        with tqdm(total=self.T, dynamic_ncols=True, unit='steps') as pbar:
+            for s in reversed(range(0, self.T)):
+                s_array = torch.full((n_samples, 1), fill_value=s, device=z.device)
+                t_array = s_array + 1
+                s_array = s_array / self.T
+                t_array = t_array / self.T
 
-            z = self.sample_p_zs_given_zt_guidance(
-                s_array,
-                t_array,
-                z,
-                node_mask,
-                edge_mask,
-                target_function,
-                scale,
-                fix_noise=fix_noise,
-            )
+                z = self.sample_p_zs_given_zt_guidance(
+                    s_array,
+                    t_array,
+                    z,
+                    node_mask,
+                    edge_mask,
+                    target_function,
+                    scale,
+                    fix_noise=fix_noise,
+                )
+                pbar.update(1)
 
         # Finally sample p(x, h | z_0).
         x, h = self.sample_p_xh_given_z0(

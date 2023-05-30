@@ -99,7 +99,7 @@ def plot_grap_of_rings_inner(
             if adj[i, j] == 1:
                 ax.plot([x[i, 0], x[j, 0]], [x[i, 1], x[j, 1]], c="black")
 
-    ax.set_title(title)
+    ax.set_title(title, fontsize=16)
     ax.set_aspect("equal")
     ax.set_xticks([])
     ax.set_yticks([])
@@ -111,16 +111,16 @@ def plot_grap_of_rings_inner(
 def plot_rdkit(
     x,
     ring_type,
-    filename=None,
+    filename='mol_rdkit',
     showPlot=False,
     title="",
     tol=0.1,
     dataset="cata",
-    addInChi=True,
+    addInChi=False,
 ):
     plt.rcParams.update({"font.size": 22})
     fig, ax = plt.subplots(1, 1, figsize=(7.5, 9))
-    atoms_positions, atoms_types, bonds = gor2goa(x, ring_type, dataset, tol)
+    atoms_positions, atoms_types, bonds = gor2goa(x.detach().cpu(), ring_type.detach().cpu(), dataset, tol)
     valid, val_ration = rdkit_valid([atoms_types], [bonds], dataset)
     if len(valid) == 0:
         return
@@ -130,7 +130,7 @@ def plot_rdkit(
     img = Chem.Draw.MolToImage(mol, size=(3600, 3600))
     Chem.Draw.MolToFile(mol, filename + ".png")
     plt.imshow(img)
-    plt.title(title)
+    plt.title(title, fontsize=16)
     plt.xticks([])
     plt.yticks([])
 
@@ -147,7 +147,7 @@ def plot_rdkit(
 def plot_graph_of_rings(
     x,
     atom_type,
-    filename=None,
+    filename='mol',
     showPlot=False,
     title="",
     tol=0.1,
@@ -161,8 +161,8 @@ def plot_graph_of_rings(
     fig, ax = plt.subplots(1, 1, figsize=(7.5, 9))
     plot_grap_of_rings_inner(
         ax,
-        x,
-        atom_type,
+        x.detach().cpu(),
+        atom_type.detach().cpu(),
         title,
         tol=tol,
         axis_lim=axis_lim,

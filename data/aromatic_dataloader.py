@@ -261,7 +261,7 @@ def get_paths(args):
         csv_path = "/home/tomerweiss/PBHs-design/data/peri-xtb-data-55821.csv"
         xyz_path = "/home/tomerweiss/PBHs-design/data/peri-cata-89893-xyz"
     elif args.dataset == "hetro":
-        csv_path = "/home/tomerweiss/PBHs-design/data/db-474K-OPV-phase-2-filtered.csv"
+        csv_path = "/home/tomerweiss/PBHs-design/data/db-474K-OPV-filtered.csv"
         xyz_path = "/home/tomerweiss/PBHs-design/data/db-474K-xyz"
     elif args.dataset == "hetro-dft":
         csv_path = "/home/tomerweiss/PBHs-design/data/db-15067-dft.csv"

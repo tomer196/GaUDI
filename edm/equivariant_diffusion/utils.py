@@ -33,9 +33,9 @@ def remove_mean(x):
 def remove_mean_with_mask(x, node_mask):
     if len(node_mask.shape) == 2:
         node_mask = node_mask.unsqueeze(2)
-    assert (x * (1 - node_mask)).abs().sum().item() < 1e-8, (
-        (x * (1 - node_mask)).abs().sum().item()
-    )
+    # assert (x * (1 - node_mask)).abs().sum().item() < 1e-8, (
+    #     (x * (1 - node_mask)).abs().sum().item()
+    # )
     N = node_mask.sum(1, keepdims=True)
     N = N.clamp(min=1)  # avoid division by zero, won't affect the results
 

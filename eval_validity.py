@@ -13,6 +13,7 @@ from sampling_edm import sample_pos_edm, save_and_sample_chain_edm
 from utils.args_edm import Args_EDM
 
 from utils.plotting import plot_graph_of_rings
+from utils.utils import get_edm_args
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
 
@@ -123,20 +124,7 @@ if __name__ == "__main__":
     np.random.seed(0)
     random.seed(0)
 
-    args = Args_EDM().parse_args()
-
-    args.name = "cata-test"
-    args.exp_dir = f"{args.save_dir}/{args.name}"
-    print(args.exp_dir)
-
-    with open(args.exp_dir + "/args.txt", "r") as f:
-        args.__dict__ = json.load(f)
-    args.restore = True
-
-    # Automatically choose GPU if available
-    args.device = (
-        torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-    )
+    args = get_edm_args("/home/tomerweiss/PBHs-design/summary/hetro_l9_c196_orientation2")
 
     print("Args:", args)
 

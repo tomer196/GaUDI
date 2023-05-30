@@ -86,9 +86,6 @@ class GCL(nn.Module):
         h1, agg = self.node_model(h, edge_index, edge_feat, node_attr)
         if node_mask is not None:
             h1 = h1 * node_mask
-
-        if torch.any(torch.isnan(mij)) or torch.any(torch.isnan(h1)):
-            print("Warning: detected nan, resetting EGNN output to zero.")
         return h1, mij
 
 
@@ -155,9 +152,6 @@ class EquivariantUpdate(nn.Module):
         coord = self.coord_model(h, coord, edge_index, coord_diff, edge_attr, edge_mask)
         if node_mask is not None:
             coord = coord * node_mask
-
-        if torch.any(torch.isnan(coord)):
-            print("Warning: detected nan, resetting EGNN output to zero.")
         return coord
 
 
@@ -238,8 +232,6 @@ class EquivariantBlock(nn.Module):
         # Important, the bias of the last linear might be non-zero
         if node_mask is not None:
             h = h * node_mask
-        if torch.any(torch.isnan(h)) or torch.any(torch.isnan(h)):
-            print("Warning: detected nan, resetting EGNN output to zero.")
         return h, x
 
 

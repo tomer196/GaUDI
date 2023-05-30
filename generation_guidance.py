@@ -10,7 +10,7 @@ import numpy as np
 from torch import Tensor, randn
 import matplotlib.pyplot as plt
 
-from analyze.analyze import analyze_validity_for_molecules
+from analyze.analyze import analyze_validity_for_molecules, analyze_rdkit_validity_for_molecules
 from edm.equivariant_diffusion.utils import (
     assert_correctly_masked,
     assert_mean_zero_with_mask,
@@ -23,6 +23,7 @@ from data.aromatic_dataloader import create_data_loaders
 
 from utils.args_edm import Args_EDM
 from utils.plotting import plot_graph_of_rings, plot_rdkit
+from utils.utils import switch_grad_off, get_edm_args, get_cond_predictor_args
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
 
@@ -65,15 +66,18 @@ def get_target_function_values(x, h, target_function, node_mask, edge_mask, edm_
     return target_function(xh, node_mask, edge_mask, t)
 
 
-def eval_stability(x, one_hot, dataset="cata"):
+def eval_stability(x, one_hot, node_mask, edge_mask, dataset="cata"):
+    bs, n, _ = x.shape
     atom_type = one_hot.argmax(2).cpu().detach()
-    molecule_list = [(x[i].cpu().detach(), atom_type[i]) for i in range(x.shape[0])]
-    stability_dict, molecule_stable_list = analyze_validity_for_molecules(
+    molecule_list = [(x[i][node_mask[i, :, 0].bool()].cpu().detach(), atom_type[i]) for i in range(x.shape[0])]
+    stability_dict, molecule_stable_list = analyze_rdkit_validity_for_molecules(
         molecule_list, dataset=dataset
     )
-    x = x[stability_dict["molecule_stable_bool"]]
-    atom_type = atom_type[stability_dict["molecule_stable_bool"]]
-    return stability_dict, x, atom_type
+    x = x[stability_dict["molecule_valid_bool"]]
+    atom_type = atom_type[stability_dict["molecule_valid_bool"]]
+    node_mask = node_mask[stability_dict["molecule_valid_bool"]]
+    edge_mask = edge_mask.view(bs, n, n)[stability_dict["molecule_valid_bool"]].view(-1, 1)
+    return stability_dict, x, atom_type, node_mask, edge_mask
 
 
 def sample_z(mu, sigma, n_samples):
@@ -82,12 +86,6 @@ def sample_z(mu, sigma, n_samples):
     z = z.contiguous().view(n_samples, -1, 3)
     z = z - z.mean(1, keepdim=True)
     return z
-
-
-def switch_grad_off(models):
-    for m in models:
-        for p in m.parameters():
-            p.requires_grad = False
 
 
 def design(
@@ -116,11 +114,11 @@ def design(
     assert_mean_zero_with_mask(x, node_mask)
 
     # evaluate stability
-    stability_dict, x_stable, atom_type_stable = eval_stability(
-        x, one_hot, dataset=args.dataset
+    stability_dict, x_stable, atom_type_stable, _, _ = eval_stability(
+        x, one_hot, node_mask, edge_mask, dataset=args.dataset
     )
     print(f"{scale=}")
-    print(f"{stability_dict['mol_stable']=:.2%} out of {x.shape[0]}")
+    print(f"{stability_dict['mol_valid']=:.2%} out of {x.shape[0]}")
 
     # evaluate target function values and prediction
     target_function_values = (
@@ -157,9 +155,9 @@ def design(
     )
 
     # find best valid molecules
-    pred = pred[stability_dict["molecule_stable_bool"]]
+    pred = pred[stability_dict["molecule_valid_bool"]]
     target_function_values = target_function_values[
-        stability_dict["molecule_stable_bool"]
+        stability_dict["molecule_valid_bool"]
     ]
     print(
         f"Mean target function value (from valid): {target_function_values.mean().item():.4f}"
@@ -229,34 +227,11 @@ def main(args, cond_predictor_args):
 
 
 if __name__ == "__main__":
-    args = Args_EDM().parse_args()
-    args.name = "cata-test"
-    args.exp_dir = f"{args.save_dir}/{args.name}"
-    print(args.exp_dir)
-
-    with open(args.exp_dir + "/args.txt", "r") as f:
-        args.__dict__ = json.load(f)
-    args.restore = True
-
-    cond_predictor_args = PredictionArgs().parse_args()
-    cond_predictor_args.name = "cata-test"
-    cond_predictor_args.exp_dir = (
-        f"cond_prediction/{cond_predictor_args.save_dir}/{cond_predictor_args.name}"
+    args = get_edm_args("/home/tomerweiss/PBHs-design/summary/hetro_l9_c196_orientation2")
+    cond_predictor_args = get_cond_predictor_args(
+        f"/home/tomerweiss/PBHs-design/prediction_summary/"
+        f"cond_predictor/hetro_gap_homo_ea_ip_stability_polynomial_2_with_norm"
     )
-    print(cond_predictor_args.exp_dir)
-
-    with open(cond_predictor_args.exp_dir + "/args.txt", "r") as f:
-        cond_predictor_args.__dict__ = json.load(f)
-    cond_predictor_args.restore = True
-    cond_predictor_args.exp_dir = (
-        f"cond_prediction/{cond_predictor_args.save_dir}/{cond_predictor_args.name}"
-    )
-
-    # Automatically choose GPU if available
-    args.device = (
-        torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-    )
-    cond_predictor_args.device = args.device
 
     # Where the magic is
     main(args, cond_predictor_args)

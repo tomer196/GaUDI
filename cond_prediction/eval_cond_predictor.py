@@ -20,6 +20,7 @@ from cond_prediction.train_cond_predictor import (
     compute_loss,
 )
 from utils.args_edm import Args_EDM
+from utils.utils import get_cond_predictor_args
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
 
@@ -117,22 +118,9 @@ if __name__ == "__main__":
     np.random.seed(0)
     random.seed(0)
     edm_args = Args_EDM().parse_args()
-    pred_args = PredictionArgs().parse_args()
-    pred_args.name = "cata-test"
-    pred_args.exp_dir = f"{pred_args.save_dir}/{pred_args.name}"
-    print(pred_args.exp_dir)
-
-    # Create model directory
-    if not os.path.isdir(pred_args.exp_dir):
-        os.makedirs(pred_args.exp_dir)
-
-    with open(pred_args.exp_dir + "/args.txt", "r") as f:
-        pred_args.__dict__ = json.load(f)
-    pred_args.restore = True
-
-    # Automatically choose GPU if available
-    pred_args.device = (
-        torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+    pred_args = get_cond_predictor_args(
+        f"/home/tomerweiss/PBHs-design/prediction_summary/"
+        f"cond_predictor/hetro_gap_homo_ea_ip_stability_polynomial_2_with_norm"
     )
     edm_args.device = pred_args.device
 

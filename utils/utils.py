@@ -1,11 +1,14 @@
 from time import time
 from typing import Tuple
+import json
 
 import torch
 from torch import Tensor
 import pandas as pd
 
+from cond_prediction.prediction_args import PredictionArgs
 from data.aromatic_dataloader import RINGS_LIST
+from utils.args_edm import Args_EDM
 
 bn_bn_dist = {"min": 2.399, "mean": 2.445, "max": 2.481, "thr": 0.01}
 bn_bn_angels3_dict = {  # 0.001 and 0.999 quantiles
@@ -193,3 +196,31 @@ def positions2adj(
                     adj[b, j, i] = 1
 
     return dist, adj
+
+def switch_grad_off(models):
+    for m in models:
+        m.eval()
+        for p in m.parameters():
+            p.requires_grad = False
+
+def get_edm_args(exp_dir_path):
+    args = Args_EDM().parse_args()
+    with open(exp_dir_path + "/args.txt", "r") as f:
+        args.__dict__ = json.load(f)
+    args.restore = True
+    args.exp_dir = exp_dir_path
+    args.device = (
+        torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+    )
+    return args
+
+def get_cond_predictor_args(exp_dir_path):
+    args = PredictionArgs().parse_args()
+    with open(exp_dir_path + "/args.txt", "r") as f:
+        args.__dict__ = json.load(f)
+    args.restore = True
+    args.exp_dir = exp_dir_path
+    args.device = (
+        torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+    )
+    return args
