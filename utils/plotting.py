@@ -59,11 +59,11 @@ def plot_grap_of_rings_inner(
     axis_lim=10,
     align=True,
     dataset="cata",
-    orientation=False,
     adj=None,
 ):
     x = torch.clamp(x, min=-1e5, max=1e5)
     rings_list = RINGS_LIST["hetro"]
+    orientation = dataset != "cata"
     if orientation:
         n = x.shape[0] // 2
         if adj is None:
@@ -99,7 +99,7 @@ def plot_grap_of_rings_inner(
             if adj[i, j] == 1:
                 ax.plot([x[i, 0], x[j, 0]], [x[i, 1], x[j, 1]], c="black")
 
-    ax.set_title(title, fontsize=16)
+    ax.set_title(title, fontsize=10)
     ax.set_aspect("equal")
     ax.set_xticks([])
     ax.set_yticks([])
@@ -111,6 +111,7 @@ def plot_grap_of_rings_inner(
 def plot_rdkit(
     x,
     ring_type,
+    ax = None,
     filename='mol_rdkit',
     showPlot=False,
     title="",
@@ -119,7 +120,8 @@ def plot_rdkit(
     addInChi=False,
 ):
     plt.rcParams.update({"font.size": 22})
-    fig, ax = plt.subplots(1, 1, figsize=(7.5, 9))
+    if ax is None:
+        fig, ax = plt.subplots(1, 1, figsize=(7.5, 9))
     atoms_positions, atoms_types, bonds = gor2goa(x.detach().cpu(), ring_type.detach().cpu(), dataset, tol)
     valid, val_ration = rdkit_valid([atoms_types], [bonds], dataset)
     if len(valid) == 0:
@@ -129,19 +131,18 @@ def plot_rdkit(
     mol = Chem.MolFromInchi(valid[0])
     img = Chem.Draw.MolToImage(mol, size=(3600, 3600))
     Chem.Draw.MolToFile(mol, filename + ".png")
-    plt.imshow(img)
-    plt.title(title, fontsize=16)
-    plt.xticks([])
-    plt.yticks([])
+    ax.imshow(img)
+    ax.set_title(title, fontsize=10)
+    ax.set_xticks([])
+    ax.set_yticks([])
 
     # save figure
     if filename:
-        fig.savefig(filename, bbox_inches="tight", pad_inches=0.0)
+        plt.savefig(filename, bbox_inches="tight", pad_inches=0.0)
 
     # show figure
     if showPlot:
         plt.show()
-    plt.close()
 
 
 def plot_graph_of_rings(
@@ -153,7 +154,6 @@ def plot_graph_of_rings(
     tol=0.1,
     axis_lim=10,
     dataset="cata",
-    orientation=False,
     adj=None,
 ):
     # set parameters
@@ -167,7 +167,6 @@ def plot_graph_of_rings(
         tol=tol,
         axis_lim=axis_lim,
         dataset=dataset,
-        orientation=orientation,
         adj=adj,
     )
 
@@ -226,10 +225,10 @@ def plot_graph_of_rings_3d(
     tol=0.1,
     axis_lim=6,
     dataset="cata",
-    orientation=False,
     colors=False,
 ):
     rings_list = RINGS_LIST["hetro"]
+    orientation = dataset != "cata"
     if orientation:
         n = x.shape[0] // 2
         _, adj = positions2adj(
@@ -327,7 +326,6 @@ def plot_chain(
     tol=0.1,
     axis_lim=6.0,
     dataset="cata",
-    orientation=False,
     gif=True,
     colors=False,
 ):
@@ -342,7 +340,6 @@ def plot_chain(
             tol=tol,
             axis_lim=axis_lim,
             dataset=dataset,
-            orientation=orientation,
             title=i,
             colors=colors,
         )
