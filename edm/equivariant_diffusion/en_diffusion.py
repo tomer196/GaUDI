@@ -899,7 +899,7 @@ class EnVariationalDiffusion(torch.nn.Module):
         # guidance
         with torch.enable_grad():
             zs = zs.requires_grad_()
-            energy = scale * target_function(zs, node_mask, edge_mask, t).mean()
+            energy = scale * target_function(zs, node_mask, edge_mask, t).sum()
             grad = autograd.grad(energy, zs)[0]
 
         max_norm = 10

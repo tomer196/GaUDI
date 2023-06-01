@@ -193,7 +193,7 @@ def design(
 
 def main(args, cond_predictor_args):
     args.batch_size = 512
-    scale = 100
+    scale = 0.6
     n_nodes = 10
 
     train_loader, _, _ = create_data_loaders(cond_predictor_args)
