@@ -7,6 +7,10 @@ The holy grail of material science is \emph{de novo} molecular design -- i.e., t
 For more information, refer to our paper *Guided Diffusion for Inverse Molecular Design* (preprint) 
 https://chemrxiv.org/engage/chemrxiv/article-details/642c221aa029a26b4ce5d696
 
+
+## Clolab notebook
+You can try our method and use it generate molecules with your own target function - [Colab](https://colab.research.google.com/drive/1BgiSjMLuFwCNyfUiV7x1GCvnrenidbtu?usp=sharing).  
+
 ## Setup
 1. Clone this repository by invoking
 ```
