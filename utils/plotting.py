@@ -129,8 +129,8 @@ def plot_rdkit(
     if addInChi:
         title = title + "\n" + valid[0]
     mol = Chem.MolFromInchi(valid[0])
-    img = Chem.Draw.MolToImage(mol, size=(3600, 3600))
-    Chem.Draw.MolToFile(mol, filename + ".png")
+    img = Chem.Draw.MolToImage(mol)
+    # Chem.Draw.MolToFile(mol, filename + ".png")
     ax.imshow(img)
     ax.set_title(title, fontsize=10)
     ax.set_xticks([])
