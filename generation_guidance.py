@@ -80,14 +80,6 @@ def eval_stability(x, one_hot, node_mask, edge_mask, dataset="cata"):
     return stability_dict, x, one_hot, node_mask, edge_mask
 
 
-def sample_z(mu, sigma, n_samples):
-    z = randn(n_samples, mu.shape[0], device=mu.device)
-    z = mu + torch.einsum("ij,bj->bi", sigma, z)
-    z = z.contiguous().view(n_samples, -1, 3)
-    z = z - z.mean(1, keepdim=True)
-    return z
-
-
 def design(
     args, model, cond_predictor, target_function, nodes_dist, prop_dist, scale, n_nodes
 ):
@@ -102,6 +94,7 @@ def design(
 
     # sample molecules - guidance generation
     start_time = time()
+    # sample molecules
     x, one_hot, node_mask, edge_mask = sample_guidance(
         args,
         model,
@@ -192,15 +185,18 @@ def design(
 
 
 def main(args, cond_predictor_args):
-    args.batch_size = 512
-    scale = 0.6
-    n_nodes = 10
+    # Set controllable parameters
+    args.batch_size = 512   # number of molecules to generate
+    scale = 0.6             # gradient scale - the guidance strength
+    n_nodes = 10            # number of rings in the generated molecules
 
+    # Load models
     train_loader, _, _ = create_data_loaders(cond_predictor_args)
     model, nodes_dist, prop_dist = get_model(args, train_loader)
     cond_predictor = get_cond_predictor_model(cond_predictor_args, train_loader.dataset)
 
-    # define target function
+    # define target function - attached two examples for the max gap and OPV target functions.
+    # You can create any target function of the predicted properties.
     def target_function_max_gap(_input, _node_mask, _edge_mask, _t):
         pred = cond_predictor(_input, _node_mask, _edge_mask, _t)
         gap = pred[:, 1]
@@ -227,6 +223,7 @@ def main(args, cond_predictor_args):
 
 
 if __name__ == "__main__":
+    # load arguments of the pre-trained EDM and conditional predictor models
     args = get_edm_args("/home/tomerweiss/PBHs-design/summary/hetro_l9_c196_orientation2")
     cond_predictor_args = get_cond_predictor_args(
         f"/home/tomerweiss/PBHs-design/prediction_summary/"

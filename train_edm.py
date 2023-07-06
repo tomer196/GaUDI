@@ -34,6 +34,7 @@ def check_mask_correct(variables, node_mask):
 
 
 def compute_loss(model, x, h, node_mask, edge_mask):
+    # helper function to compute loss - reshape inputs, run forward pass and return the loss
     bs, n_nodes, n_dims = x.size()
     assert_correctly_masked(x, node_mask)
     edge_mask = edge_mask.view(bs, n_nodes * n_nodes)
@@ -56,6 +57,7 @@ def train_epoch(epoch, model, dataloader, optimizer, args, writer, gradnorm_queu
     grad_norms = []
     with tqdm(dataloader, unit="batch", desc=f"Train {epoch}") as tepoch:
         for i, (x, node_mask, edge_mask, node_features, y) in enumerate(tepoch):
+            # prepare data - send to device, reshape, etc.
             x = x.to(args.device)
             node_mask = node_mask.to(args.device).unsqueeze(2)
             edge_mask = edge_mask.to(args.device)
@@ -65,6 +67,7 @@ def train_epoch(epoch, model, dataloader, optimizer, args, writer, gradnorm_queu
             check_mask_correct([x, h], node_mask)
             assert_mean_zero_with_mask(x, node_mask)
 
+            # forward pass
             loss = compute_loss(model, x, h, node_mask, edge_mask)
 
             # backprop
@@ -80,6 +83,8 @@ def train_epoch(epoch, model, dataloader, optimizer, args, writer, gradnorm_queu
             losses.append(loss.item())
             tepoch.set_postfix(loss=np.mean(losses).item())
     sleep(0.01)
+
+    # print and log results
     print(
         f"[{epoch}|train] loss: {np.mean(losses):.3f}+-{np.std(losses):.3f}, "
         f"GradNorm: {np.mean(grad_norms):.1f}, "
@@ -96,6 +101,7 @@ def val_epoch(tag, epoch, model, nodes_dist, prop_dist, dataloader, args, writer
         losses = []
         with tqdm(dataloader, unit="batch", desc=f"{tag} {epoch}") as tepoch:
             for i, (x, node_mask, edge_mask, node_features, y) in enumerate(tepoch):
+                # prepare data - send to device, reshape, etc.
                 x = x.to(args.device)
                 node_mask = node_mask.to(args.device).unsqueeze(2)
                 edge_mask = edge_mask.to(args.device)
@@ -105,19 +111,22 @@ def val_epoch(tag, epoch, model, nodes_dist, prop_dist, dataloader, args, writer
                 check_mask_correct([x, h], node_mask)
                 assert_mean_zero_with_mask(x, node_mask)
 
-                # transform batch through flow
-                nll = compute_loss(model, x, h, node_mask, edge_mask)
+                # forward pass
+                loss = compute_loss(model, x, h, node_mask, edge_mask)
 
-                losses.append(nll.item())
+                losses.append(loss.item())
 
                 tepoch.set_postfix(loss=np.mean(losses).item())
         sleep(0.01)
+
+        # print and log results
         print(
             f"[{epoch}|{tag}] loss: {np.mean(losses):.3f}+-{np.std(losses):.3f}, "
             f" in {int(time() - start_time)} secs"
         )
         writer.add_scalar(f"{tag} loss", np.mean(losses), epoch)
 
+        # save samples
         if tag == "val" and epoch % 50 == 0 and args.rings_graph:
             save_and_sample_chain_edm(
                 args,
@@ -167,11 +176,13 @@ def main(args):
         val_loss = val_epoch(
             "val", epoch, model, nodes_dist, prop_dist, val_loader, args, writer
         )
+        # save best model if validation loss improved
         if val_loss < best_val_loss:
             best_val_loss = val_loss
             best_epoch = epoch
             torch.save(model.state_dict(), args.exp_dir + "/model.pt")
 
+    # load best model and evaluate on the test set
     print(f"{best_epoch=}, {best_val_loss=:.4f}")
     model.load_state_dict(torch.load(args.exp_dir + "/model.pt"))
     _ = val_epoch(
@@ -181,11 +192,12 @@ def main(args):
 
 
 if __name__ == "__main__":
+    # set seeds
     torch.manual_seed(0)
     np.random.seed(0)
     random.seed(0)
 
-    # getargs and save in the experiment directory
+    # Load arguments and save in the experiment directory
     args = Args_EDM().parse_args()
     args.exp_dir = f"{args.save_dir}/{args.name}"
 
@@ -203,4 +215,5 @@ if __name__ == "__main__":
     print(args.exp_dir)
     print("Args:", args)
 
+    # Run training
     main(args)

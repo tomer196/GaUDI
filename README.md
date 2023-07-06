@@ -28,8 +28,9 @@ Alternatively, dependencies can be installed manually as follows:
 ```
 conda create -n <env_name> python=3.8
 conda activate <env_name>
-conda install pytorch=1.10 rdkit
-pip install matplotlib networkx tensorboard pandas scipy
+conda install pytorch=1.10 cudatoolkit=<cuda-version> -c pytorch
+conda install rdkit
+pip install matplotlib networkx tensorboard pandas scipy tqdm imageio
 ```
 
 ## Usage
@@ -62,10 +63,10 @@ Results should be as the results in Table 1 in the paper.
 Finally, we can start designing molecules using the guided diffusion model. In order to sample from the guided model, follow these steps:
 
 1. Configure the paths to the diffusion model and the time conditioned prediction model 
-in `generation_guidance.py` lines 225 and 233.
-2. Define a target function.
-4. Set the gradient scale and number of desired molecules
-5. Run:
+in `generation_guidance.py` lines 227 and 228.
+2. Set the gradient scale and number of desired molecules - lines 189-191.
+3. Define a target function - line 198.
+4. Run:
 ```
 python generation_guidance.py
 ```

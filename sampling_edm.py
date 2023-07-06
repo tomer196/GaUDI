@@ -63,6 +63,7 @@ def reverse_tensor(x):
 
 
 def sample_chain_pos(args, model, n_tries, n_nodes=10, std=0.7):
+    # helper function for sampling a molecule while saving all the intermediate time steps for visualization
     n_samples = 1
 
     if args.orientation:
@@ -126,15 +127,16 @@ def node2edge_mask(node_mask):
 
 
 def sample_pos_edm(args, model, nodesxsample, std=0.7):
+    # helper function for sampling unconditional molecules
 
     assert int(torch.max(nodesxsample)) <= args.max_nodes
     batch_size = len(nodesxsample)
 
+    # create node and edge masks - according to the number of nodes in each sample
     node_mask = torch.zeros(batch_size, args.max_nodes)
     for i in range(batch_size):
         node_mask[i, 0 : nodesxsample[i]] = 1
 
-    # Compute edge_mask
     edge_mask = node2edge_mask(node_mask)
     node_mask = node_mask.unsqueeze(2).to(args.device)
     n_nodes = args.max_nodes
@@ -160,6 +162,7 @@ def sample_pos_edm(args, model, nodesxsample, std=0.7):
         n_nodes *= 2
     edge_mask = edge_mask.view(-1, 1).to(args.device)
 
+    # sample from the EDM model
     x, h = model.sample(batch_size, n_nodes, node_mask, edge_mask, std=std)
 
     assert_correctly_masked(x, node_mask)
@@ -168,10 +171,13 @@ def sample_pos_edm(args, model, nodesxsample, std=0.7):
 
 
 def sample_guidance(args, model, target_function, nodesxsample, scale=1, std=1.0):
+    # helper function for sampling conditional molecules - guided by the target function
 
     # assert int(torch.max(nodesxsample)) <= args.max_nodes
     batch_size = len(nodesxsample)
     max_nodes = nodesxsample.max().item()
+
+    # create node and edge masks - according to the number of nodes in each sample
     node_mask = torch.zeros(batch_size, max_nodes)
     for i in range(batch_size):
         node_mask[i, 0 : nodesxsample[i]] = 1
@@ -203,6 +209,7 @@ def sample_guidance(args, model, target_function, nodesxsample, scale=1, std=1.0
         max_nodes *= 2
     edge_mask = edge_mask.view(-1, 1).to(args.device)
 
+    # sample from the EDM model
     x, h = model.sample_guidance(
         batch_size,
         target_function,
@@ -221,6 +228,7 @@ def sample_guidance(args, model, target_function, nodesxsample, scale=1, std=1.0
 def save_and_sample_chain_edm(
     args, model, dirname, file_name="chain", n_tries=1, std=0.7
 ):
+    # helper function for sampling and saving a molecule gif
     if not os.path.isdir(dirname):
         os.mkdir(dirname)
     try:
@@ -232,7 +240,6 @@ def save_and_sample_chain_edm(
             dirname=dirname,
             filename=file_name,
             dataset=args.dataset,
-            orientation=args.orientation,
         )
     except:
         print("Failed to visualize molecule gif")
@@ -241,6 +248,7 @@ def save_and_sample_chain_edm(
 def sample_different_sizes_and_save_edm(
     args, model, nodes_dist, prop_dist, n_samples=10, epoch=0, std=0.7
 ):
+    # helper function for sampling and saving a molecules
     n_samples = min(args.batch_size, n_samples)
     nodesxsample = nodes_dist.sample(n_samples)
     try:
