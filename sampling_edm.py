@@ -66,7 +66,7 @@ def sample_chain_pos(args, model, n_tries, n_nodes=10, std=0.7):
     # helper function for sampling a molecule while saving all the intermediate time steps for visualization
     n_samples = 1
 
-    if args.orientation:
+    if args.dataset != "cata":
         node_mask = torch.ones(n_samples, 2 * n_nodes, 1).to(args.device)
         edge_mask = 1 - torch.eye(n_nodes)
         edge_mask = torch.cat(
@@ -85,7 +85,7 @@ def sample_chain_pos(args, model, n_tries, n_nodes=10, std=0.7):
 
     for i in range(n_tries):
         chain = model.sample_chain(
-            n_samples, n_nodes, node_mask, edge_mask, keep_frames=100, std=std
+            n_samples, n_nodes, node_mask, edge_mask, context=None, keep_frames=100, std=std
         )
         chain = reverse_tensor(chain)
 
@@ -97,7 +97,6 @@ def sample_chain_pos(args, model, n_tries, n_nodes=10, std=0.7):
             x_squeeze,
             node_features.argmax(1),
             dataset=args.dataset,
-            orientation=args.orientation,
         )
         mol_stable = all(validity_results.values())
 
@@ -252,8 +251,8 @@ def sample_different_sizes_and_save_edm(
     n_samples = min(args.batch_size, n_samples)
     nodesxsample = nodes_dist.sample(n_samples)
     try:
-        x, one_hot, node_mask = sample_pos_edm(
-            args, model, prop_dist, nodesxsample, std=std
+        x, one_hot, node_mask, edge_mask = sample_pos_edm(
+            args, model, nodesxsample, std=std
         )
         for i in range(n_samples):
             plot_graph_of_rings(
@@ -261,7 +260,6 @@ def sample_different_sizes_and_save_edm(
                 one_hot[i][node_mask[i, :, 0].bool()].argmax(1),
                 filename=f"{args.exp_dir}/epoch_{epoch}/mol{i}",
                 dataset=args.dataset,
-                orientation=args.orientation,
             )
     except:
         print("Failed to visualize molecule")

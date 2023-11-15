@@ -172,7 +172,7 @@ def plot_graph_of_rings(
 
     # save figure
     if filename:
-        fig.savefig(filename, bbox_inches="tight", pad_inches=0.0)
+        fig.savefig(filename, pad_inches=0.0)
 
     # show figure
     if showPlot:
@@ -309,7 +309,7 @@ def plot_graph_of_rings_3d(
 
     # save figure
     if filename:
-        fig.savefig(filename, bbox_inches="tight", pad_inches=0.0)
+        fig.savefig(filename, pad_inches=0.0)
 
     # show figure
     if showPlot:
@@ -332,7 +332,7 @@ def plot_chain(
     save_paths = []
     os.makedirs(dirname, exist_ok=True)
     for i in range(x.shape[0]):
-        save_paths.append(f"{dirname}/chain{i}.pdf")
+        save_paths.append(f"{dirname}/chain{i}.png")
         plot_graph_of_rings_3d(
             x[i],
             atom_type[i],
